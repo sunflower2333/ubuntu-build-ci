@@ -10,6 +10,7 @@ export OUT_TAR="$PWD/${DISTRO}-${ARCH}-rootfs.tar.gz"
 export KERNEL_PACKS_REPO="sunflower2333/linux"
 export PROTON_URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton10-20/GE-Proton10-20.tar.zst"
 export HANGOVER_URL="https://github.com/AndreRH/hangover/releases/download/hangover-10.14/hangover_10.14_ubuntu2204_jammy_arm64.tar"
+export RPCS3_URL="https://rpcs3.net/latest-linux-arm64"
 
 # Get minimal rootfs
 sudo debootstrap --arch="$ARCH" --variant=minbase "$DISTRO" "$ROOTFS_DIR" "$MIRROR"
@@ -17,6 +18,7 @@ sudo debootstrap --arch="$ARCH" --variant=minbase "$DISTRO" "$ROOTFS_DIR" "$MIRR
 # Download application packages
 wget -O "$ROOTFS_DIR/usr/local/bin/proton.tar.zst" "$PROTON_URL" > /dev/null 2>&1
 wget -O "$ROOTFS_DIR/usr/local/bin/hangover.tar" "$HANGOVER_URL" > /dev/null 2>&1
+wget -O "$ROOTFS_DIR/tmp/rpcs3-arm64.AppImage" "$RPCS3_URL" > /dev/null 2>&1
 
 # Download kernel packages
 # Get lastest debs link
@@ -29,7 +31,7 @@ if [ -z "$URL" ] || [ "$URL" = "null" ]; then
 fi
 
 curl -L --fail -o linux_debs.7z "$URL" > /dev/null 2>&1
-7z x linux_debs.7z -ols x"$ROOTFS_DIR/tmp/linux_debs"
+7z x linux_debs.7z -o"$ROOTFS_DIR/tmp/linux_debs"
 rm linux_debs.7z
 
 # Set apt source list
@@ -73,17 +75,12 @@ apt-get update
 apt-get install -y --no-install-recommends ubuntu-minimal systemd \
         dbus locales tzdata ca-certificates gnupg wget curl sudo \
         network-manager snap flatpak gcc python3 python3-pip \
-        linux-firmware \
-        mesa-utils vulkan-tools \
-        $DESKTOP_ENV
+        linux-firmware 
+        # mesa-utils vulkan-tools \
+        # $DESKTOP_ENV
  
 # Install box64
 # TODO
-
-# Install RPCS3
-curl -JLO https://rpcs3.net/latest-linux-arm64
-chmod a+x ./rpcs3-*linux_aarch64.AppImage && ./rpcs3-*_linux_aarch64.AppImage
-rm ./rpcs3-*_linux_aarch64.AppImage
 
 # Install Dolphin
 flatpak remote-add --if-not-exists dolphin https://flatpak.dolphin-emu.org/releases.flatpakrepo
@@ -109,6 +106,13 @@ useradd -m -s /bin/bash $DEFAULT_USER_NAME || true
 echo '$DEFAULT_USER_NAME:passwd' | chpasswd
 usermod -aG sudo $DEFAULT_USER_NAME
 
+
+# Copy RPCS3 to home
+chmod a+x /tmp/rpcs3-arm64.AppImage
+mv /tmp/rpcs3-arm64.AppImage /home/$DEFAULT_USER_NAME/RPCS3.AppImage
+chown $DEFAULT_USER_NAME:$DEFAULT_USER_NAME /home/$DEFAULT_USER_NAME/RPCS3.AppImage
+
+
 # Install custom kernel and modules
 dpkg -i /tmp/linux_debs/*.deb
 rm -rf /tmp/linux_debs
@@ -122,8 +126,6 @@ sudo umount -l "$ROOTFS_DIR/dev/pts" || true
 sudo umount -l "$ROOTFS_DIR/dev" || true
 sudo umount -l "$ROOTFS_DIR/proc" || true
 sudo umount -l "$ROOTFS_DIR/sys" || true
-
-
 
 sudo tar -C "$ROOTFS_DIR" -czf "$OUT_TAR" .
 zstd --rm --ultra -22 "$OUT_TAR"
