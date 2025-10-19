@@ -8,7 +8,7 @@ export ROOTFS_DIR="$PWD/ubuntu-${DISTRO}-${ARCH}-rootfs"
 export OUT_TAR="$PWD/${DISTRO}-${ARCH}-rootfs.tar.gz"
 
 export KERNEL_PACKS_REPO="sunflower2333/linux"
-export FW_PACKS_REPO="sunflower2333/firmware"
+export FW_PACKS_REPO="sunflower2333/linux-firmware-ayaneo"
 export PROTON_URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton10-20/GE-Proton10-20.tar.zst"
 export HANGOVER_URL="https://github.com/AndreRH/hangover/releases/download/hangover-10.14/hangover_10.14_ubuntu2204_jammy_arm64.tar"
 export RPCS3_URL="https://rpcs3.net/latest-linux-arm64"
@@ -32,7 +32,20 @@ if [ -z "$URL" ] || [ "$URL" = "null" ]; then
 fi
 
 curl -L --fail -o linux_debs.7z "$URL" > /dev/null 2>&1
+
+URL=$(curl -s "https://api.github.com/repos/sunflower2333/linux-firmware-ayaneo/releases/latest" \
+  | jq -r '.assets[] | select(.name=="firmware_deb.7z") | .browser_download_url')
+
+if [ -z "$URL" ] || [ "$URL" = "null" ]; then
+  echo "Asset firmware_deb.7z not found" >&2
+  exit 1
+fi
+
+curl -L --fail -o firmware_deb.7z "$URL" > /dev/null 2>&1
+
+# Decompress debs from archives
 7z x linux_debs.7z -o"$ROOTFS_DIR/tmp/linux_debs"
+7z x firmware_deb.7z -o"$ROOTFS_DIR/tmp/linux_debs"
 rm linux_debs.7z
 
 # Set apt source list
@@ -68,8 +81,10 @@ sudo cp /etc/resolv.conf "$ROOTFS_DIR/etc/resolv.conf"
 sudo chroot "$ROOTFS_DIR" /bin/bash -e <<'EOF'
 # Envs
 export DEFAULT_USER_NAME="ubuntu"
+export DEFAULT_USER_PASSWORD="passwd"
 export DESKTOP_ENV="kde-standard"
 export DEBIAN_FRONTEND=noninteractive
+export TZ="China/Shanghai"
 
 # Install packages
 apt-get update && apt-get upgrade -y
@@ -80,6 +95,15 @@ apt-get install -y --no-install-recommends ubuntu-minimal systemd \
         # mesa-utils vulkan-tools \
         # $DESKTOP_ENV
  
+ # Locale
+locale-gen en_US.UTF-8 
+update-locale LANG=en_US.UTF-8
+
+# Register default user
+useradd -m -s /bin/bash "$DEFAULT_USER_NAME"
+echo "$DEFAULT_USER_NAME":"$DEFAULT_USER_PASSWORD" | chpasswd
+usermod -aG sudo "$DEFAULT_USER_NAME"
+
 # Install box64
 # TODO
 
@@ -95,26 +119,19 @@ curl -s https://repo.waydro.id | sudo bash
 apt-get install -y waydroid
 
 # Install proton ge
-tar -C /usr/local/bin/proton/ -xvf /usr/local/bin/proton.tar.zst
+mkdir -p /usr/local/bin/proton/
+tar -C /usr/local/bin/proton/ -xf /usr/local/bin/proton.tar.zst
 rm /usr/local/bin/proton.tar.zst
 
 # Install hangover
-tar -C /usr/local/bin/hangover/ -xvf /usr/local/bin/hangover.tar
+mkdir -p /usr/local/bin/hangover/
+tar -C /usr/local/bin/hangover/ -xf /usr/local/bin/hangover.tar
 rm /usr/local/bin/hangover.tar
-
-# Locale
-locale-gen en_US.UTF-8 zh_CN.UTF-8
-update-locale LANG=en_US.UTF-8
-
-# Register default user
-useradd -m -s /bin/bash $DEFAULT_USER_NAME || true
-echo '$DEFAULT_USER_NAME:passwd' | chpasswd
-usermod -aG sudo $DEFAULT_USER_NAME
 
 # Copy RPCS3 to home
 chmod a+x /tmp/rpcs3-arm64.AppImage
 mv /tmp/rpcs3-arm64.AppImage /home/$DEFAULT_USER_NAME/RPCS3.AppImage
-chown $DEFAULT_USER_NAME:$DEFAULT_USER_NAME /home/$DEFAULT_USER_NAME/RPCS3.AppImage
+chown $DEFAULT_USER_NAME: /home/$DEFAULT_USER_NAME/RPCS3.AppImage
 
 # Install custom kernel,modules,headers and firmware
 dpkg -i /tmp/linux_debs/*.deb
