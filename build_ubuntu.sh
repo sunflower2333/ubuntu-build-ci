@@ -83,8 +83,11 @@ apt-get install -y --no-install-recommends ubuntu-minimal systemd \
 # TODO
 
 # Install Dolphin
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 flatpak remote-add --if-not-exists dolphin https://flatpak.dolphin-emu.org/releases.flatpakrepo
-sudo flatpak install dolphin org.DolphinEmu.dolphin-emu -y
+flatpak update --appstream -y
+flatpak update -y
+flatpak install dolphin org.DolphinEmu.dolphin-emu -y
 
 # Install Waydroid
 curl -s https://repo.waydro.id | sudo bash
@@ -106,14 +109,12 @@ useradd -m -s /bin/bash $DEFAULT_USER_NAME || true
 echo '$DEFAULT_USER_NAME:passwd' | chpasswd
 usermod -aG sudo $DEFAULT_USER_NAME
 
-
 # Copy RPCS3 to home
 chmod a+x /tmp/rpcs3-arm64.AppImage
 mv /tmp/rpcs3-arm64.AppImage /home/$DEFAULT_USER_NAME/RPCS3.AppImage
 chown $DEFAULT_USER_NAME:$DEFAULT_USER_NAME /home/$DEFAULT_USER_NAME/RPCS3.AppImage
 
-
-# Install custom kernel and modules
+# Install custom kernel,modules,headers and firmware
 dpkg -i /tmp/linux_debs/*.deb
 rm -rf /tmp/linux_debs
 
