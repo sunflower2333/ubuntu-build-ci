@@ -14,7 +14,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y debootstrap
+          sudo apt-get install -y debootstrap jq
       - name: Run build script
         run: |
           chmod +x build_ubuntu.sh
@@ -25,4 +25,4 @@ jobs:
               name: tar-zst-artifacts
               path: "./*.tar.zst"
               if-no-files-found: warn
-              compression-level: 0
+              compression-level: 5
