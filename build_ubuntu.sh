@@ -8,6 +8,7 @@ export ROOTFS_DIR="$PWD/ubuntu-${DISTRO}-${ARCH}-rootfs"
 export OUT_TAR="$PWD/${DISTRO}-${ARCH}-rootfs.tar.gz"
 
 export KERNEL_PACKS_REPO="sunflower2333/linux"
+export FW_PACKS_REPO="sunflower2333/firmware"
 export PROTON_URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton10-20/GE-Proton10-20.tar.zst"
 export HANGOVER_URL="https://github.com/AndreRH/hangover/releases/download/hangover-10.14/hangover_10.14_ubuntu2204_jammy_arm64.tar"
 export RPCS3_URL="https://rpcs3.net/latest-linux-arm64"
@@ -71,11 +72,11 @@ export DESKTOP_ENV="kde-standard"
 export DEBIAN_FRONTEND=noninteractive
 
 # Install packages
-apt-get update
+apt-get update && apt-get upgrade -y
 apt-get install -y --no-install-recommends ubuntu-minimal systemd \
         dbus locales tzdata ca-certificates gnupg wget curl sudo \
         network-manager snap flatpak gcc python3 python3-pip \
-        linux-firmware 
+        linux-firmware zip unzip p7zip-full zstd \
         # mesa-utils vulkan-tools \
         # $DESKTOP_ENV
  
@@ -83,14 +84,15 @@ apt-get install -y --no-install-recommends ubuntu-minimal systemd \
 # TODO
 
 # Install Dolphin
-flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak remote-add --if-not-exists dolphin https://flatpak.dolphin-emu.org/releases.flatpakrepo
-flatpak update --appstream -y
-flatpak update -y
-flatpak install dolphin org.DolphinEmu.dolphin-emu -y
+# flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+# flatpak remote-add --if-not-exists dolphin https://flatpak.dolphin-emu.org/releases.flatpakrepo
+# flatpak update --appstream -y
+# flatpak update -y
+# flatpak install dolphin org.DolphinEmu.dolphin-emu -y
 
 # Install Waydroid
 curl -s https://repo.waydro.id | sudo bash
+apt-get install -y waydroid
 
 # Install proton ge
 tar -C /usr/local/bin/proton/ -xvf /usr/local/bin/proton.tar.zst
