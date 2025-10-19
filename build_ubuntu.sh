@@ -15,8 +15,8 @@ export HANGOVER_URL="https://github.com/AndreRH/hangover/releases/download/hango
 sudo debootstrap --arch="$ARCH" --variant=minbase "$DISTRO" "$ROOTFS_DIR" "$MIRROR"
 
 # Download application packages
-wget -O "$ROOTFS_DIR/usr/local/bin/proton.tar.zst" "$PROTON_URL"
-wget -O "$ROOTFS_DIR/usr/local/bin/hangover.tar" "$HANGOVER_URL"
+wget -O "$ROOTFS_DIR/usr/local/bin/proton.tar.zst" "$PROTON_URL" > /dev/null 2>&1
+wget -O "$ROOTFS_DIR/usr/local/bin/hangover.tar" "$HANGOVER_URL" > /dev/null 2>&1
 
 # Download kernel packages
 # Get lastest debs link
@@ -28,17 +28,17 @@ if [ -z "$URL" ] || [ "$URL" = "null" ]; then
   exit 1
 fi
 
-curl -L --fail -o linux_debs.7z "$URL"
+curl -L --fail -o linux_debs.7z "$URL" > /dev/null 2>&1
 7z x linux_debs.7z -ols x"$ROOTFS_DIR/tmp/linux_debs"
 rm linux_debs.7z
 
 # Set apt source list
-# cat > $ROOTFS_DIR/etc/apt/sources.list <<EOF
-# deb $MIRROR $DISTRO main restricted universe multiverse
-# deb $MIRROR $DISTRO-updates main restricted universe multiverse
-# deb $MIRROR $DISTRO-backports main restricted universe multiverse
-# deb $MIRROR $DISTRO-security main restricted universe multiverse
-# EOF
+cat > $ROOTFS_DIR/etc/apt/sources.list <<EOF
+deb $MIRROR $DISTRO main restricted universe multiverse
+deb $MIRROR $DISTRO-updates main restricted universe multiverse
+deb $MIRROR $DISTRO-backports main restricted universe multiverse
+deb $MIRROR $DISTRO-security main restricted universe multiverse
+EOF
 
 cat > /etc/apt/sources.list.d/ubuntu.sources <<EOF
 Types: deb
