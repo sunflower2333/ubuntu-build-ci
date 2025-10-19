@@ -92,8 +92,8 @@ apt-get install -y --no-install-recommends ubuntu-minimal systemd \
         dbus locales tzdata ca-certificates gnupg wget curl sudo \
         network-manager snap flatpak gcc python3 python3-pip \
         linux-firmware zip unzip p7zip-full zstd \
-        # mesa-utils vulkan-tools \
-        # $DESKTOP_ENV
+        mesa-utils vulkan-tools \
+        $DESKTOP_ENV
  
  # Locale
 locale-gen en_US.UTF-8 
@@ -108,11 +108,11 @@ usermod -aG sudo "$DEFAULT_USER_NAME"
 # TODO
 
 # Install Dolphin
-# flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-# flatpak remote-add --if-not-exists dolphin https://flatpak.dolphin-emu.org/releases.flatpakrepo
-# flatpak update --appstream -y
-# flatpak update -y
-# flatpak install dolphin org.DolphinEmu.dolphin-emu -y
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+flatpak remote-add --if-not-exists dolphin https://flatpak.dolphin-emu.org/releases.flatpakrepo
+flatpak update --appstream -y
+flatpak update -y
+flatpak install dolphin org.DolphinEmu.dolphin-emu -y
 
 # Install Waydroid
 curl -s https://repo.waydro.id | sudo bash
@@ -137,9 +137,12 @@ chown $DEFAULT_USER_NAME: /home/$DEFAULT_USER_NAME/RPCS3.AppImage
 dpkg -i /tmp/linux_debs/*.deb
 rm -rf /tmp/linux_debs
 
+echo "Finished installing packages."
+
 # Clean up
 apt-get clean
 rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* ~/.bash_history
+exit
 EOF
 
 sudo umount -l "$ROOTFS_DIR/dev/pts" || true
