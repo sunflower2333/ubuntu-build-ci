@@ -19,10 +19,11 @@ jobs:
         run: |
           chmod +x build_ubuntu.sh
           sudo ./build_ubuntu.sh
-          - name: Upload tar.zst artifacts
-            uses: actions/upload-artifact@v4
-            with:
-              name: tar-zst-artifacts
-              path: "./*.tar.zst"
-              if-no-files-found: warn
-              compression-level: 5
+
+      - name: Upload tar.zst artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rootfs.tar.zst
+          path: "./*.tar.zst"
+          if-no-files-found: warn
+          compression-level: 5
