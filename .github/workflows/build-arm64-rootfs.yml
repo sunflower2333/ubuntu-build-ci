@@ -1,4 +1,4 @@
-name: Build Ubuntu ARM RootFS
+name: LXC Build Ubuntu ARM RootFS
 
 on:
   workflow_dispatch:
@@ -6,24 +6,64 @@ on:
     branches: [main]
 
 jobs:
-  build-arm64-rootfs:
+  lxc-build:
     runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: write
+    timeout-minutes: 120
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Install dependencies
+
+      - name: Install host dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y debootstrap jq
-      - name: Run build script
-        run: |
-          chmod +x build_ubuntu.sh
-          sudo ./build_ubuntu.sh
+          sudo apt-get install -y \
+            debootstrap lxc jq p7zip-full zstd curl wget ca-certificates \
+            tar xz-utils gnupg dnsmasq-base uidmap
 
-      - name: Upload tar.zst artifacts
-        uses: actions/upload-artifact@v4
+      - name: Run LXC build script
+        run: |
+          chmod +x build_ubuntu_lxc.sh
+          sudo ./build_ubuntu_lxc.sh
+
+      - name: Set Release Tag and Name
+        id: set_tag_name
+        run: |
+          current_time=$(date +"%y.%U.%H.%M")
+          echo "TAG_NAME=release-${current_time}" >> $GITHUB_ENV
+          echo "RELEASE_NAME=Release ${current_time}" >> $GITHUB_ENV
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: rootfs.tar.zst
-          path: "./*.tar.zst"
-          if-no-files-found: warn
-          compression-level: 5
+          tag_name: ${{ env.TAG_NAME }}
+          release_name: ${{ env.RELEASE_NAME }}
+          draft: false
+          prerelease: true
+
+      - name: Find rootfs artifact
+        id: find_artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=$(ls -1 *.tar.zst 2>/dev/null | head -n1)
+          if [[ -z "$file" ]]; then
+            echo "No .tar.zst found in workspace" >&2
+            exit 1
+          fi
+          echo "ASSET_PATH=$file" >> $GITHUB_ENV
+          echo "ASSET_NAME=$(basename "$file")" >> $GITHUB_ENV
+
+      - name: Upload rootfs to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ASSET_PATH }}
+          asset_name: ${{ env.ASSET_NAME }}
+          asset_content_type: application/octet-stream
