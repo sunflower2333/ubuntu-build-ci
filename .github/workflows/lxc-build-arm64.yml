@@ -17,10 +17,6 @@ jobs:
           sudo apt-get install -y \
             debootstrap lxc jq p7zip-full zstd curl wget ca-certificates \
             tar xz-utils gnupg dnsmasq-base uidmap
-          # Try to enable lxc-net to provide lxcbr0; ignore if unavailable
-          if systemctl list-unit-files | grep -q '^lxc-net.service'; then
-            sudo systemctl enable --now lxc-net || true
-          fi
 
       - name: Run LXC build script
         run: |

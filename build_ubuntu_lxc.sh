@@ -65,32 +65,6 @@ cleanup() {
 trap cleanup EXIT
 
 #-----------------------------
-# Ensure host dependencies
-#-----------------------------
-install_host_deps() {
-  info "Installing host dependencies"
-  sudo apt-get update
-  sudo apt-get install -y \
-    debootstrap lxc jq p7zip-full zstd curl wget ca-certificates \
-    tar xz-utils gnupg dnsmasq-base uidmap
-
-  # Optional: start lxc-net to provide lxcbr0 bridge for container networking
-  if systemctl list-unit-files | grep -q '^lxc-net.service'; then
-    sudo systemctl enable --now lxc-net || true
-  else
-    warn "lxc-net.service not found; ensure networking for LXC is available (lxcbr0)."
-  fi
-
-  require_cmd debootstrap
-  require_cmd lxc-create
-  require_cmd lxc-start
-  require_cmd lxc-attach
-  require_cmd jq
-  require_cmd 7z
-  require_cmd zstd
-}
-
-#-----------------------------
 # Stage 1: Create rootfs and pre-stage assets
 #-----------------------------
 create_rootfs() {
@@ -246,27 +220,19 @@ create_lxc_container() {
   sudo tee "${LXC_CONFIG}" >/dev/null <<EOF
 lxc.include = /usr/share/lxc/config/common.conf
 lxc.arch = aarch64
-lxc.uts.name = ${LXC_NAME}
+lxc.uts.name = ubuntufs-noble-arm64
 
 # Use our debootstrapped rootfs
-lxc.rootfs.path = dir:${ROOTFS_DIR}
+lxc.rootfs.path = dir:/home/alarm/ubuntu/ubuntu-noble-arm64-rootfs
 
 # Systemd as init inside container
-lxc.init.cmd = /lib/systemd/systemd
+lxc.init.cmd = /sbin/init
 
-# Allow nesting/systemd-friendly defaults
-lxc.apparmor.profile = unconfined
-lxc.cap.drop =
-lxc.mount.auto = proc:rw sys:rw cgroup:rw
-lxc.cgroup2.devices.allow = a
-lxc.autodev = 1
-lxc.console.path = none
-lxc.pty.max = 1024
+# Container specific configuration
+lxc.apparmor.profile = generated
+lxc.apparmor.allow_nesting = 1
 
-# Networking via lxcbr0
-lxc.net.0.type = veth
-lxc.net.0.link = lxcbr0
-lxc.net.0.flags = up
+lxc.net.0.type = none
 EOF
 
   # Register container (no template, external rootfs)
@@ -370,7 +336,6 @@ prime_rootfs_for_lxc() {
 # Main
 #-----------------------------
 main() {
-  install_host_deps
   create_rootfs
   configure_apt_sources
   pre_download_assets
