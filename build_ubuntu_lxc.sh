@@ -223,7 +223,7 @@ lxc.arch = aarch64
 lxc.uts.name = ubuntufs-noble-arm64
 
 # Use our debootstrapped rootfs
-lxc.rootfs.path = dir:/home/alarm/ubuntu/ubuntu-noble-arm64-rootfs
+lxc.rootfs.path = dir:${ROOTFS_DIR}
 
 # Systemd as init inside container
 lxc.init.cmd = /sbin/init
@@ -244,11 +244,9 @@ EOF
 start_container() {
   info "Starting container ${LXC_NAME}"
   # Optional debug logging
-  if [[ "${LXC_DEBUG:-0}" == "1" ]]; then
-    sudo lxc-start -n "${LXC_NAME}" -d -o "${LXC_DIR}/lxc-start.log" -l DEBUG
-  else
-    sudo lxc-start -n "${LXC_NAME}" -d
-  fi
+  sudo lxc-start -n "${LXC_NAME}" --logfile "${LXC_DIR}/lxc-start.log" --logpriority DEBUG
+
+  cat "${LXC_DIR}/lxc-start.log"
 
   # Wait for running state
   for i in {1..30}; do
