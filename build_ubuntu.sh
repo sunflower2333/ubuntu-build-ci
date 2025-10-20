@@ -5,12 +5,12 @@ export DISTRO=noble
 export ARCH=arm64
 export MIRROR='http://ports.ubuntu.com/ubuntu-ports'
 export ROOTFS_DIR="$PWD/ubuntu-${DISTRO}-${ARCH}-rootfs"
-export OUT_TAR="$PWD/${DISTRO}-${ARCH}-rootfs.tar.gz"
+export OUT_TAR="$PWD/${DISTRO}-${ARCH}-rootfs.tar.zst"
 
 export KERNEL_PACKS_REPO="sunflower2333/linux"
 export FW_PACKS_REPO="sunflower2333/linux-firmware-ayaneo"
 export PROTON_URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton10-20/GE-Proton10-20.tar.zst"
-export HANGOVER_URL="https://github.com/AndreRH/hangover/releases/download/hangover-10.14/hangover_10.14_ubuntu2204_jammy_arm64.tar"
+export HANGOVER_URL="https://github.com/AndreRH/hangover/releases/download/hangover-10.14/hangover_10.14_ubuntu2404_noble_arm64.tar"
 export RPCS3_URL="https://rpcs3.net/latest-linux-arm64"
 
 # Get minimal rootfs
@@ -150,6 +150,5 @@ sudo umount -l "$ROOTFS_DIR/dev" || true
 sudo umount -l "$ROOTFS_DIR/proc" || true
 sudo umount -l "$ROOTFS_DIR/sys" || true
 
-sudo tar -C "$ROOTFS_DIR" -czf "$OUT_TAR" .
-zstd --rm --ultra -22 "$OUT_TAR"
-ls -lh "$OUT_TAR".zst 
+sudo tar -C "$ROOTFS_DIR" --zstd -cf "$OUT_TAR" .
+ls -lh "$OUT_TAR"
