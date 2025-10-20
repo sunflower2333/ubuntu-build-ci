@@ -8,6 +8,7 @@ set -euo pipefail
 # - Launches an LXC container with that rootfs (systemd as PID1)
 # - Runs the original chroot provisioning logic inside the container
 # - Packages the rootfs as 7z multi-volume
+# - Packages the rootfs as 7z multi-volume
 #============================================================
 
 #-----------------------------
@@ -17,6 +18,9 @@ export DISTRO="noble"
 export ARCH="arm64"
 export MIRROR="http://ports.ubuntu.com/ubuntu-ports"
 export ROOTFS_DIR="${PWD}/ubuntu-${DISTRO}-${ARCH}-rootfs"
+# Final output base name (7z multi-volume, parts will be .001, .002, ...)
+export SYS_OUTPUT="${PWD}/${DISTRO}-${ARCH}-rootfs.7z"
+export CHUNK_SIZE="${CHUNK_SIZE:-1500m}"  # default 1.5GB per part; can override via env
 # Final output base name (7z multi-volume, parts will be .001, .002, ...)
 export SYS_OUTPUT="${PWD}/${DISTRO}-${ARCH}-rootfs.7z"
 export CHUNK_SIZE="${CHUNK_SIZE:-1500m}"  # default 1.5GB per part; can override via env
@@ -298,14 +302,18 @@ stop_container() {
 }
 
 package_rootfs() {
-  info "Packaging rootfs into 7z multi-volume archive"
+  info "Packaging rootfs using tar stream -> 7z multi-volume archive"
 
-  info "Creating 7z multi-volume: ${SYS_OUTPUT}.* with chunk size ${CHUNK_SIZE}, max compression and multi-threading"
-  # Use LZMA2, maximum compression (-mx=9), multi-threading (-mmt=on), and volume splitting (-v)
-  # Archive the entire rootfs directory contents by running 7z inside ROOTFS_DIR
+  require_cmd tar || return 1
+  require_cmd 7z  || return 1
+
+  local tar_name="${DISTRO}-${ARCH}-rootfs.tar"
+  info "Creating tar -> 7z multi-volume: ${SYS_OUTPUT}.* (chunk=${CHUNK_SIZE}, comp=mx=9, threads=on)"
+
   (
     cd "${ROOTFS_DIR}" && \
-    sudo 7z a -t7z -m0=lzma2 -mx=9 -mmt=on -v${CHUNK_SIZE} "${SYS_OUTPUT}" .
+    sudo tar -cpf - . \
+      | sudo 7z a "${SYS_OUTPUT}" -t7z -m0=lzma2 -mx=9 -mmt=on -v${CHUNK_SIZE} -si"${tar_name}"
   )
 
   ls -lh "${SYS_OUTPUT}".* 2>/dev/null || true
@@ -370,6 +378,7 @@ main() {
   run_provision
   stop_container
   package_rootfs
+  info "Done. Output: ${SYS_OUTPUT}.*"
   info "Done. Output: ${SYS_OUTPUT}.*"
 }
 
