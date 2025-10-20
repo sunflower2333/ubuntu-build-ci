@@ -1,4 +1,4 @@
-name: LXC Build Ubuntu ARM RootFS
+name: Build ARM Ubuntu RootFS
 
 on:
   workflow_dispatch:
@@ -24,8 +24,8 @@ jobs:
 
       - name: Run LXC build script
         run: |
-          chmod +x build_ubuntu_lxc.sh
-          sudo ./build_ubuntu_lxc.sh
+          chmod +x build_ubuntu.sh
+          sudo ./build_ubuntu.sh
 
       - name: Set Release Tag and Name
         id: set_tag_name
