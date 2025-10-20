@@ -252,12 +252,16 @@ lxc.uts.name = ${LXC_NAME}
 lxc.rootfs.path = dir:${ROOTFS_DIR}
 
 # Systemd as init inside container
-lxc.init.cmd = /sbin/init
+lxc.init.cmd = /lib/systemd/systemd
 
 # Allow nesting/systemd-friendly defaults
 lxc.apparmor.profile = unconfined
 lxc.cap.drop =
-lxc.mount.auto = proc:mixed sys:mixed cgroup:mixed
+lxc.mount.auto = proc:rw sys:rw cgroup:rw
+lxc.cgroup2.devices.allow = a
+lxc.autodev = 1
+lxc.console.path = none
+lxc.pty.max = 1024
 
 # Networking via lxcbr0
 lxc.net.0.type = veth
@@ -273,7 +277,12 @@ EOF
 
 start_container() {
   info "Starting container ${LXC_NAME}"
-  sudo lxc-start -n "${LXC_NAME}" -d
+  # Optional debug logging
+  if [[ "${LXC_DEBUG:-0}" == "1" ]]; then
+    sudo lxc-start -n "${LXC_NAME}" -d -o "${LXC_DIR}/lxc-start.log" -l DEBUG
+  else
+    sudo lxc-start -n "${LXC_NAME}" -d
+  fi
 
   # Wait for running state
   for i in {1..30}; do
@@ -314,6 +323,50 @@ package_rootfs() {
 }
 
 #-----------------------------
+# Stage 1.5: Prime rootfs with systemd before LXC start
+#-----------------------------
+prime_rootfs_for_lxc() {
+  info "Priming rootfs for LXC (ensure systemd present)"
+
+  # If /sbin/init (systemd) already exists, skip
+  if sudo chroot "${ROOTFS_DIR}" test -x /sbin/init 2>/dev/null; then
+    info "systemd already present in rootfs"
+    return 0
+  fi
+
+  # Bind mounts for chroot apt operations
+  sudo mount --bind /proc "${ROOTFS_DIR}/proc"
+  sudo mount --bind /sys  "${ROOTFS_DIR}/sys"
+  sudo mount --bind /dev  "${ROOTFS_DIR}/dev"
+  sudo mount --bind /dev/pts "${ROOTFS_DIR}/dev/pts" || true
+  [[ -f /etc/resolv.conf ]] && sudo cp /etc/resolv.conf "${ROOTFS_DIR}/etc/resolv.conf"
+
+  set +e
+  sudo chroot "${ROOTFS_DIR}" bash -lc "apt-get update"
+  sudo chroot "${ROOTFS_DIR}" bash -lc "DEBIAN_FRONTEND=noninteractive apt-get install -y systemd systemd-sysv dbus"
+  status=$?
+  set -e
+
+  # Ensure machine-id exists (systemd requirement)
+  if [[ ! -f "${ROOTFS_DIR}/etc/machine-id" ]]; then
+    sudo touch "${ROOTFS_DIR}/etc/machine-id"
+  fi
+
+  # Unmount regardless of result
+  sudo umount -l "${ROOTFS_DIR}/dev/pts" 2>/dev/null || true
+  sudo umount -l "${ROOTFS_DIR}/dev" 2>/dev/null || true
+  sudo umount -l "${ROOTFS_DIR}/proc" 2>/dev/null || true
+  sudo umount -l "${ROOTFS_DIR}/sys" 2>/dev/null || true
+
+  if [[ $status -ne 0 ]]; then
+    err "Failed to install systemd into rootfs; LXC may fail to start. See logs."
+    exit 1
+  fi
+
+  info "systemd installed in rootfs"
+}
+
+#-----------------------------
 # Main
 #-----------------------------
 main() {
@@ -322,6 +375,7 @@ main() {
   configure_apt_sources
   pre_download_assets
   write_provision_script
+  prime_rootfs_for_lxc
   create_lxc_container
   start_container
   run_provision
@@ -331,3 +385,4 @@ main() {
 }
 
 main "$@"
+
