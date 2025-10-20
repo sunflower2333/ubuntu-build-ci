@@ -7,7 +7,7 @@ set -euo pipefail
 # - Uses debootstrap to create rootfs
 # - Launches an LXC container with that rootfs (systemd as PID1)
 # - Runs the original chroot provisioning logic inside the container
-# - Packages the rootfs to tar.zst
+# - Packages the rootfs as 7z multi-volume
 #============================================================
 
 #-----------------------------
@@ -17,7 +17,9 @@ export DISTRO="noble"
 export ARCH="arm64"
 export MIRROR="http://ports.ubuntu.com/ubuntu-ports"
 export ROOTFS_DIR="${PWD}/ubuntu-${DISTRO}-${ARCH}-rootfs"
-export OUT_TAR="${PWD}/${DISTRO}-${ARCH}-rootfs.tar.zst"
+# Final output base name (7z multi-volume, parts will be .001, .002, ...)
+export SYS_OUTPUT="${PWD}/${DISTRO}-${ARCH}-rootfs.7z"
+export CHUNK_SIZE="${CHUNK_SIZE:-1500m}"  # default 1.5GB per part; can override via env
 
 # Upstream assets and repos
 export KERNEL_PACKS_REPO="sunflower2333/linux"
@@ -296,9 +298,18 @@ stop_container() {
 }
 
 package_rootfs() {
-  info "Packaging rootfs into ${OUT_TAR}"
-  sudo tar -C "${ROOTFS_DIR}" --zstd -cf "${OUT_TAR}" .
-  ls -lh "${OUT_TAR}"
+  info "Packaging rootfs into 7z multi-volume archive"
+
+  info "Creating 7z multi-volume: ${SYS_OUTPUT}.* with chunk size ${CHUNK_SIZE}, max compression and multi-threading"
+  # Use LZMA2, maximum compression (-mx=9), multi-threading (-mmt=on), and volume splitting (-v)
+  # Archive the entire rootfs directory contents by running 7z inside ROOTFS_DIR
+  (
+    cd "${ROOTFS_DIR}" && \
+    sudo 7z a -t7z -m0=lzma2 -mx=9 -mmt=on -v${CHUNK_SIZE} "${SYS_OUTPUT}" .
+  )
+
+  ls -lh "${SYS_OUTPUT}".* 2>/dev/null || true
+  info "Done. 7z parts: ${SYS_OUTPUT}.*"
 }
 
 #-----------------------------
@@ -359,7 +370,7 @@ main() {
   run_provision
   stop_container
   package_rootfs
-  info "Done. Output: ${OUT_TAR}"
+  info "Done. Output: ${SYS_OUTPUT}.*"
 }
 
 main "$@"
