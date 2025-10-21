@@ -19,6 +19,7 @@ export MIRROR="http://ports.ubuntu.com/ubuntu-ports"
 export ROOTFS_DIR="${PWD}/ubuntu-${DISTRO}-${ARCH}-rootfs"
 export SYS_OUTPUT="${PWD}/${DISTRO}-${ARCH}-rootfs.7z"
 export CHUNK_SIZE="${CHUNK_SIZE:-1500m}"  # default 1.5GB per part; can override via env
+export HOSTNAME_NAME="${DISTRO}"  # desired hostname inside rootfs/container
 
 # Upstream assets and repos
 export KERNEL_PACKS_REPO="sunflower2333/linux"
@@ -36,7 +37,7 @@ export LXC_CONFIG="${LXC_DIR}/config"
 # Provisioning env inside container
 export DEFAULT_USER_NAME="ubuntu"
 export DEFAULT_USER_PASSWORD="passwd"
-export DESKTOP_ENV="kde-full"
+export DESKTOP_ENV="kde-standard"
 export DEBIAN_FRONTEND="noninteractive"
 export TZ_REGION="Asia/Shanghai"
 
@@ -95,6 +96,22 @@ EOF
   fi
 }
 
+#-----------------------------
+# Hostname setup inside rootfs
+#-----------------------------
+configure_hostname() {
+  info "Configuring hostname in rootfs: ${HOSTNAME_NAME}"
+  # /etc/hostname
+  echo "${HOSTNAME_NAME}" | sudo tee "${ROOTFS_DIR}/etc/hostname" >/dev/null
+
+  # Ensure 127.0.1.1 mapping in /etc/hosts
+  sudo touch "${ROOTFS_DIR}/etc/hosts"
+  # Remove any existing 127.0.1.1 line to avoid duplicates
+  sudo sed -i '/^127\.0\.1\.1\b.*/d' "${ROOTFS_DIR}/etc/hosts"
+  # Keep localhost entries intact, append our hostname mapping
+  echo "127.0.1.1 ${HOSTNAME_NAME}" | sudo tee -a "${ROOTFS_DIR}/etc/hosts" >/dev/null
+}
+
 pre_download_assets() {
   info "Downloading application assets into rootfs"
   wget -q -O "${ROOTFS_DIR}/usr/local/bin/proton.tar.zst" "${PROTON_URL}" || warn "Failed to download proton"
@@ -145,9 +162,18 @@ set -euo pipefail
 # Environment for provisioning
 export DEFAULT_USER_NAME="ubuntu"
 export DEFAULT_USER_PASSWORD="passwd"
-export DESKTOP_ENV="kde-full"
+export DESKTOP_ENV="kde-standard"
 export DEBIAN_FRONTEND="noninteractive"
 export TZ_REGION="Asia/Shanghai"
+
+echo "[container] Install Box64"
+sudo mkdir -p /usr/share/keyrings
+wget -qO- "https://pi-apps-coders.github.io/box64-debs/KEY.gpg" | sudo gpg --dearmor -o /usr/share/keyrings/box64-archive-keyring.gpg
+# create .sources file
+echo "Types: deb
+URIs: https://Pi-Apps-Coders.github.io/box64-debs/debian
+Suites: ./
+Signed-By: /usr/share/keyrings/box64-archive-keyring.gpg" | sudo tee /etc/apt/sources.list.d/box64.sources >/dev/null
 
 echo "[container] Updating and installing base packages"
 apt-get update && apt-get upgrade -y
@@ -155,16 +181,19 @@ apt-get install -y ubuntu-minimal systemd \
   dbus locales tzdata ca-certificates gnupg wget curl sudo \
   network-manager snap flatpak gcc python3 python3-pip \
   linux-firmware zip unzip p7zip-full zstd nano vim \
-  mesa-utils vulkan-tools \
-  ${DESKTOP_ENV} sddm  plasma-workspace-wayland breeze \
-  sddm-theme-breeze
+  mesa-utils vulkan-tools openssh-server \
+  ${DESKTOP_ENV} sddm plasma-workspace-wayland breeze \
+  sddm-theme-breeze plasma-mobile-tweaks maliit-keyboard \
+  systemsettings xinput firefox box64-generic-arm
 
 systemctl enable sddm || true
 systemctl enable NetworkManager || true
+systemctl enable ssh || true
 
 echo "[container] Configure locale/timezone"
 locale-gen en_US.UTF-8
-update-locale LANG=en_US.UTF-8
+# update-locale LANG=en_US.UTF-8
+update-locale LANG=zh_CN.UTF-8
 ln -sf "/usr/share/zoneinfo/${TZ_REGION}" /etc/localtime || true
 dpkg-reconfigure -f noninteractive tzdata || true
 
@@ -174,6 +203,68 @@ if ! id -u "${DEFAULT_USER_NAME}" >/dev/null 2>&1; then
 fi
 echo "${DEFAULT_USER_NAME}:${DEFAULT_USER_PASSWORD}" | chpasswd
 usermod -aG sudo "${DEFAULT_USER_NAME}"
+
+# SDDM Rotate
+echo "[container] Configure display rotation for DSI-1"
+cat <<'EOR' >/usr/share/sddm/scripts/Xsetup
+xrandr --output DSI-1 --rotate right --scale 0.5x0.5
+xinput set-prop 7 "Coordinate Transformation Matrix" 0 1 0 -1 0 1 0 0 1
+EOR
+
+# KDE Rotate and DPI
+echo "[container] Configure display rotation in Plasma"
+mkdir -p /home/ubuntu/.local/share/kscreen/outputs/
+# For APS2
+cat <<'EOR' >/home/ubuntu/.local/share/kscreen/b5350822fc24a835e633b5bf90f2b56d
+[
+    {
+        "enabled": true,
+        "id": "DSI-1",
+        "metadata": {
+            "name": "DSI-1"
+        },
+        "mode": {
+            "refresh": 60,
+            "size": {
+                "height": 2560,
+                "width": 1440
+            }
+        },
+        "overscan": 0,
+        "pos": {
+            "x": 0,
+            "y": 0
+        },
+        "priority": 1,
+        "rgbrange": 0,
+        "rotation": 8,
+        "scale": 2,
+        "vrrpolicy": 0
+    }
+]
+EOR
+cat <<'EOR' >/home/ubuntu/.local/kscreen/outputs/b5350822fc24a835e633b5bf90f2b56d
+{
+    "id": "DSI-1",
+    "metadata": {
+        "name": "DSI-1"
+    },
+    "mode": {
+        "refresh": 60,
+        "size": {
+            "height": 2560,
+            "width": 1440
+        }
+    },
+    "overscan": 0,
+    "rgbrange": 0,
+    "rotation": 8,
+    "scale": 2,
+    "vrrpolicy": 0
+}
+EOR
+chown -R "${DEFAULT_USER_NAME}:${DEFAULT_USER_NAME}" /home/ubuntu/.local
+chmod -R 700 /home/ubuntu/.local
 
 echo "[container] Flatpak setup and Dolphin install"
 flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo || true
@@ -201,11 +292,12 @@ if [[ -f /usr/local/bin/hangover.tar ]]; then
   rm -f /usr/local/bin/hangover.tar
 fi
 
-echo "[container] Place RPCS3 AppImage to user's home"
+echo "[container] Place RPCS3 AppImage to user's desktop"
 if [[ -f /var/opt/rpcs3-arm64.AppImage ]]; then
   chmod a+x /var/opt/rpcs3-arm64.AppImage
-  mv /var/opt/rpcs3-arm64.AppImage "/home/${DEFAULT_USER_NAME}/RPCS3.AppImage"
-  chown "${DEFAULT_USER_NAME}:${DEFAULT_USER_NAME}" "/home/${DEFAULT_USER_NAME}/RPCS3.AppImage"
+  mkdir -p "/home/${DEFAULT_USER_NAME}/Desktop"
+  mv /var/opt/rpcs3-arm64.AppImage "/home/${DEFAULT_USER_NAME}/Desktop/RPCS3.AppImage"
+  chown -R "${DEFAULT_USER_NAME}:${DEFAULT_USER_NAME}" "/home/${DEFAULT_USER_NAME}/Desktop"
 fi
 
 echo "[container] Install custom kernel/modules/firmware if present"
@@ -213,6 +305,9 @@ if compgen -G "/var/opt/linux_debs/*.deb" > /dev/null; then
   dpkg -i /var/opt/linux_debs/*.deb || apt-get -f install -y
   rm -rf /var/opt/linux_debs
 fi
+
+echo "[container] Decompress firmware files"
+find /usr/lib/firmware/ath12k/ /usr/lib/firmware/qcom/ -name "*.zst" -exec unzstd --rm {} \;
 
 echo "[container] Copy custom ucm2 conf"
 if [[ ! -d /usr/share/alsa ]]; then
@@ -244,7 +339,7 @@ create_lxc_container() {
   sudo tee "${LXC_CONFIG}" >/dev/null <<EOF
 lxc.include = /usr/share/lxc/config/common.conf
 lxc.arch = aarch64
-lxc.uts.name = ubuntufs-noble-arm64
+lxc.uts.name = ${HOSTNAME_NAME}
 
 # Use our debootstrapped rootfs
 lxc.rootfs.path = dir:${ROOTFS_DIR}
@@ -344,7 +439,8 @@ prime_rootfs_for_lxc() {
 
   set +e
   sudo chroot "${ROOTFS_DIR}" bash -lc "apt-get update"
-  sudo chroot "${ROOTFS_DIR}" bash -lc "DEBIAN_FRONTEND=noninteractive apt-get install -y systemd systemd-sysv dbus"
+  sudo chroot "${ROOTFS_DIR}" bash -lc "DEBIAN_FRONTEND=noninteractive apt-get install -y systemd systemd-sysv dbus wget curl"
+
   status=$?
   set -e
 
@@ -373,6 +469,7 @@ prime_rootfs_for_lxc() {
 main() {
   create_rootfs
   configure_apt_sources
+  configure_hostname
   pre_download_assets
   write_provision_script
   prime_rootfs_for_lxc
