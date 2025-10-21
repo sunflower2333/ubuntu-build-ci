@@ -166,34 +166,63 @@ export DESKTOP_ENV="kde-standard"
 export DEBIAN_FRONTEND="noninteractive"
 export TZ_REGION="Asia/Shanghai"
 
-echo "[container] Install Box64"
-sudo mkdir -p /usr/share/keyrings
-wget -qO- "https://pi-apps-coders.github.io/box64-debs/KEY.gpg" | sudo gpg --dearmor -o /usr/share/keyrings/box64-archive-keyring.gpg
+echo "[container] Setup Box64 apt source"
+mkdir -p /usr/share/keyrings
+wget -qO- "https://pi-apps-coders.github.io/box64-debs/KEY.gpg" | gpg --dearmor -o /usr/share/keyrings/box64-archive-keyring.gpg
 # create .sources file
 echo "Types: deb
 URIs: https://Pi-Apps-Coders.github.io/box64-debs/debian
 Suites: ./
-Signed-By: /usr/share/keyrings/box64-archive-keyring.gpg" | sudo tee /etc/apt/sources.list.d/box64.sources >/dev/null
+Signed-By: /usr/share/keyrings/box64-archive-keyring.gpg" | tee /etc/apt/sources.list.d/box64.sources >/dev/null
+
+echo "[container] Setup Firefox apt source"
+install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg -o /etc/apt/keyrings/packages.mozilla.org.asc
+# Convert to APT keyring and verify fingerprint without touching /root/.gnupg
+gpg --batch --yes --dearmor -o /etc/apt/keyrings/packages.mozilla.org.gpg /etc/apt/keyrings/packages.mozilla.org.asc
+chmod 0644 /etc/apt/keyrings/packages.mozilla.org.gpg
+expected="35BAA0B33E9EB396F59CA838C0BA5CE6DC6315A3"
+actual="$(gpg --batch --no-tty --show-keys --with-fingerprint --with-colons /etc/apt/keyrings/packages.mozilla.org.asc | awk -F: '/^fpr:/{print $10; exit}')"
+if [[ "${actual}" != "${expected}" ]]; then
+  echo "Verification failed: the fingerprint (${actual}) does not match the expected one (${expected})." >&2
+  exit 1
+else
+  echo "The key fingerprint matches (${actual})."
+fi
+
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/packages.mozilla.org.gpg] https://mirrors.tuna.tsinghua.edu.cn/mozilla/apt mozilla main" | tee /etc/apt/sources.list.d/mozilla.list > /dev/null
+echo '
+Package: *
+Pin: origin mirrors.tuna.tsinghua.edu.cn
+Pin-Priority: 1000
+' | tee /etc/apt/preferences.d/mozilla > /dev/null
 
 echo "[container] Updating and installing base packages"
 apt-get update && apt-get upgrade -y
 apt-get install -y ubuntu-minimal systemd \
-  dbus locales tzdata ca-certificates gnupg wget curl sudo \
-  network-manager snap flatpak gcc python3 python3-pip \
+  dbus locales tzdata ca-certificates gnupg wget curl \
+  network-manager flatpak gcc python3 python3-pip \
   linux-firmware zip unzip p7zip-full zstd nano vim \
-  mesa-utils vulkan-tools openssh-server \
+  mesa-utils vulkan-tools \
   ${DESKTOP_ENV} sddm plasma-workspace-wayland breeze \
   sddm-theme-breeze plasma-mobile-tweaks maliit-keyboard \
-  systemsettings xinput firefox box64-generic-arm
+  systemsettings xinput firefox box64-generic-arm \
+  firefox-l10n-zh-cn language-pack-zh-hans language-pack-kde-zh-hans
 
 systemctl enable sddm || true
 systemctl enable NetworkManager || true
-systemctl enable ssh || true
+# systemctl enable ssh || true
 
 echo "[container] Configure locale/timezone"
-locale-gen en_US.UTF-8
-# update-locale LANG=en_US.UTF-8
-update-locale LANG=zh_CN.UTF-8
+locale-gen en_US.UTF-8 zh_CN.UTF-8
+update-locale LANG=en_US.UTF-8 # tty UTF-8
+echo "LANG=zh_CN.UTF-8" > /etc/default/locale
+mkdir -p /etc/systemd/system/sddm.service.d/
+cat <<EOL >/etc/systemd/system/sddm.service.d/EnvironmentFile.conf
+[Service]
+EnvironmentFile=/etc/default/locale
+EOL
+
 ln -sf "/usr/share/zoneinfo/${TZ_REGION}" /etc/localtime || true
 dpkg-reconfigure -f noninteractive tzdata || true
 
@@ -439,8 +468,7 @@ prime_rootfs_for_lxc() {
 
   set +e
   sudo chroot "${ROOTFS_DIR}" bash -lc "apt-get update"
-  sudo chroot "${ROOTFS_DIR}" bash -lc "DEBIAN_FRONTEND=noninteractive apt-get install -y systemd systemd-sysv dbus wget curl"
-
+  sudo chroot "${ROOTFS_DIR}" bash -lc "DEBIAN_FRONTEND=noninteractive apt-get install -y systemd systemd-sysv dbus wget curl sudo gpg openssh-server"
   status=$?
   set -e
 
@@ -478,7 +506,6 @@ main() {
   run_provision
   stop_container
   package_rootfs
-  info "Done. Output: ${SYS_OUTPUT}.*"
   info "Done. Output: ${SYS_OUTPUT}.*"
 }
 
