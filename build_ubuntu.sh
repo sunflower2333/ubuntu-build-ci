@@ -8,7 +8,6 @@ set -euo pipefail
 # - Launches an LXC container with that rootfs (systemd as PID1)
 # - Runs the original chroot provisioning logic inside the container
 # - Packages the rootfs as 7z multi-volume
-# - Packages the rootfs as 7z multi-volume
 #============================================================
 
 #-----------------------------
@@ -18,10 +17,6 @@ export DISTRO="noble"
 export ARCH="arm64"
 export MIRROR="http://ports.ubuntu.com/ubuntu-ports"
 export ROOTFS_DIR="${PWD}/ubuntu-${DISTRO}-${ARCH}-rootfs"
-# Final output base name (7z multi-volume, parts will be .001, .002, ...)
-export SYS_OUTPUT="${PWD}/${DISTRO}-${ARCH}-rootfs.7z"
-export CHUNK_SIZE="${CHUNK_SIZE:-1500m}"  # default 1.5GB per part; can override via env
-# Final output base name (7z multi-volume, parts will be .001, .002, ...)
 export SYS_OUTPUT="${PWD}/${DISTRO}-${ARCH}-rootfs.7z"
 export CHUNK_SIZE="${CHUNK_SIZE:-1500m}"  # default 1.5GB per part; can override via env
 
@@ -41,9 +36,9 @@ export LXC_CONFIG="${LXC_DIR}/config"
 # Provisioning env inside container
 export DEFAULT_USER_NAME="ubuntu"
 export DEFAULT_USER_PASSWORD="passwd"
-export DESKTOP_ENV="kde-standard"
+export DESKTOP_ENV="kde-full"
 export DEBIAN_FRONTEND="noninteractive"
-export TZ_REGION="Asia/Shanghai"  # prefer canonical tz name
+export TZ_REGION="Asia/Shanghai"
 
 #-----------------------------
 # Helpers
@@ -82,7 +77,7 @@ create_rootfs() {
     sudo debootstrap --arch="${ARCH}" --variant=minbase "${DISTRO}" "${ROOTFS_DIR}" "${MIRROR}"
   fi
 
-  sudo mkdir -p "${ROOTFS_DIR}/usr/local/bin" "${ROOTFS_DIR}/tmp"
+  sudo mkdir -p "${ROOTFS_DIR}/usr/local/bin" "${ROOTFS_DIR}/var/opt"
 }
 
 configure_apt_sources() {
@@ -104,7 +99,7 @@ pre_download_assets() {
   info "Downloading application assets into rootfs"
   wget -q -O "${ROOTFS_DIR}/usr/local/bin/proton.tar.zst" "${PROTON_URL}" || warn "Failed to download proton"
   wget -q -O "${ROOTFS_DIR}/usr/local/bin/hangover.tar" "${HANGOVER_URL}" || warn "Failed to download hangover"
-  wget -q -O "${ROOTFS_DIR}/tmp/rpcs3-arm64.AppImage" "${RPCS3_URL}" || warn "Failed to download RPCS3"
+  wget -q -O "${ROOTFS_DIR}/var/opt/rpcs3-arm64.AppImage" "${RPCS3_URL}" || warn "Failed to download RPCS3"
 
   info "Downloading kernel/firmware packs metadata"
   URL=$(curl -s "https://api.github.com/repos/${KERNEL_PACKS_REPO}/releases/latest" \
@@ -123,19 +118,22 @@ pre_download_assets() {
     warn "Asset firmware_deb.7z not found"
   fi
 
+  # Create target dir for kernel debs
+  sudo mkdir -p "${ROOTFS_DIR}/var/opt/linux_debs/"
+
   if [[ -f linux_debs.7z ]]; then
-    info "Extracting kernel debs into rootfs tmp"
-    sudo 7z x linux_debs.7z -o"${ROOTFS_DIR}/tmp/linux_debs" >/dev/null
+    info "Extracting kernel debs into rootfs var/opt"
+    sudo 7z x linux_debs.7z -o"${ROOTFS_DIR}/var/opt/linux_debs/" >/dev/null
     rm -f linux_debs.7z
   fi
   if [[ -f firmware_deb.7z ]]; then
-    info "Extracting firmware debs into rootfs tmp"
-    sudo 7z x firmware_deb.7z -o"${ROOTFS_DIR}/tmp/linux_debs" >/dev/null
+    info "Extracting firmware debs into rootfs var/opt"
+    sudo 7z x firmware_deb.7z -o"${ROOTFS_DIR}/var/opt/linux_debs/" >/dev/null
     rm -f firmware_deb.7z
   fi
 
-  info "Downloading ALSA UCM2 config"
-  wget -q -O "${ROOTFS_DIR}/tmp/alsa-ucm-conf.tar.gz" "${ALSA_UCM_URL}" || warn "Failed to download ALSA UCM2 config"
+  info "Downloading ALSA UCM2 config to rootfs"
+  wget -q -O "${ROOTFS_DIR}/var/opt/alsa-ucm-conf.tar.gz" "${ALSA_UCM_URL}" || warn "Failed to download ALSA UCM2 config"
 }
 
 write_provision_script() {
@@ -147,18 +145,22 @@ set -euo pipefail
 # Environment for provisioning
 export DEFAULT_USER_NAME="ubuntu"
 export DEFAULT_USER_PASSWORD="passwd"
-export DESKTOP_ENV="kde-standard"
+export DESKTOP_ENV="kde-full"
 export DEBIAN_FRONTEND="noninteractive"
 export TZ_REGION="Asia/Shanghai"
 
 echo "[container] Updating and installing base packages"
 apt-get update && apt-get upgrade -y
-apt-get install -y --no-install-recommends ubuntu-minimal systemd \
+apt-get install -y ubuntu-minimal systemd \
   dbus locales tzdata ca-certificates gnupg wget curl sudo \
   network-manager snap flatpak gcc python3 python3-pip \
-  linux-firmware zip unzip p7zip-full zstd \
+  linux-firmware zip unzip p7zip-full zstd nano vim \
   mesa-utils vulkan-tools \
-  ${DESKTOP_ENV}
+  ${DESKTOP_ENV} sddm  plasma-workspace-wayland breeze \
+  sddm-theme-breeze
+
+systemctl enable sddm || true
+systemctl enable NetworkManager || true
 
 echo "[container] Configure locale/timezone"
 locale-gen en_US.UTF-8
@@ -200,32 +202,33 @@ if [[ -f /usr/local/bin/hangover.tar ]]; then
 fi
 
 echo "[container] Place RPCS3 AppImage to user's home"
-if [[ -f /tmp/rpcs3-arm64.AppImage ]]; then
-  chmod a+x /tmp/rpcs3-arm64.AppImage
-  mv /tmp/rpcs3-arm64.AppImage "/home/${DEFAULT_USER_NAME}/RPCS3.AppImage"
+if [[ -f /var/opt/rpcs3-arm64.AppImage ]]; then
+  chmod a+x /var/opt/rpcs3-arm64.AppImage
+  mv /var/opt/rpcs3-arm64.AppImage "/home/${DEFAULT_USER_NAME}/RPCS3.AppImage"
   chown "${DEFAULT_USER_NAME}:${DEFAULT_USER_NAME}" "/home/${DEFAULT_USER_NAME}/RPCS3.AppImage"
 fi
 
 echo "[container] Install custom kernel/modules/firmware if present"
-if compgen -G "/tmp/linux_debs/*.deb" > /dev/null; then
-  dpkg -i /tmp/linux_debs/*.deb || apt-get -f install -y
-  rm -rf /tmp/linux_debs
+if compgen -G "/var/opt/linux_debs/*.deb" > /dev/null; then
+  dpkg -i /var/opt/linux_debs/*.deb || apt-get -f install -y
+  rm -rf /var/opt/linux_debs
 fi
 
 echo "[container] Copy custom ucm2 conf"
 if [[ ! -d /usr/share/alsa ]]; then
   mkdir -p /usr/share/alsa
 fi
-if [[ -f /tmp/alsa-ucm-conf.tar.gz ]]; then
-  tar xzf /tmp/alsa-ucm-conf.tar.gz -C /usr/share/alsa --strip-components=1 --wildcards "*/ucm" "*/ucm2"
-  rm -f /tmp/alsa-ucm-conf.tar.gz
+
+if [[ -f /var/opt/alsa-ucm-conf.tar.gz ]]; then
+  tar xzf /var/opt/alsa-ucm-conf.tar.gz -C /usr/share/alsa --strip-components=1 --wildcards "*/ucm" "*/ucm2"
+  rm -f /var/opt/alsa-ucm-conf.tar.gz
 fi
 
 echo "[container] Finished installing packages."
 
 echo "[container] Cleanup"
 apt-get clean
-rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /root/.bash_history
+rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/log/* /var/opt/* /root/.bash_history
 EOS
 
   sudo chmod +x "${ROOTFS_DIR}/root/provision.sh"
