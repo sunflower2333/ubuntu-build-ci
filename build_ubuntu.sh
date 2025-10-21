@@ -167,18 +167,18 @@ export DEBIAN_FRONTEND="noninteractive"
 export TZ_REGION="Asia/Shanghai"
 
 echo "[container] Install Box64"
-sudo mkdir -p /usr/share/keyrings
-wget -qO- "https://pi-apps-coders.github.io/box64-debs/KEY.gpg" | sudo gpg --dearmor -o /usr/share/keyrings/box64-archive-keyring.gpg
+mkdir -p /usr/share/keyrings
+wget -qO- "https://pi-apps-coders.github.io/box64-debs/KEY.gpg" | gpg --dearmor -o /usr/share/keyrings/box64-archive-keyring.gpg
 # create .sources file
 echo "Types: deb
 URIs: https://Pi-Apps-Coders.github.io/box64-debs/debian
 Suites: ./
-Signed-By: /usr/share/keyrings/box64-archive-keyring.gpg" | sudo tee /etc/apt/sources.list.d/box64.sources >/dev/null
+Signed-By: /usr/share/keyrings/box64-archive-keyring.gpg" | tee /etc/apt/sources.list.d/box64.sources >/dev/null
 
 echo "[container] Updating and installing base packages"
 apt-get update && apt-get upgrade -y
 apt-get install -y ubuntu-minimal systemd \
-  dbus locales tzdata ca-certificates gnupg wget curl sudo \
+  dbus locales tzdata ca-certificates gnupg wget curl \
   network-manager snap flatpak gcc python3 python3-pip \
   linux-firmware zip unzip p7zip-full zstd nano vim \
   mesa-utils vulkan-tools openssh-server \
@@ -439,7 +439,7 @@ prime_rootfs_for_lxc() {
 
   set +e
   sudo chroot "${ROOTFS_DIR}" bash -lc "apt-get update"
-  sudo chroot "${ROOTFS_DIR}" bash -lc "DEBIAN_FRONTEND=noninteractive apt-get install -y systemd systemd-sysv dbus wget curl"
+  sudo chroot "${ROOTFS_DIR}" bash -lc "DEBIAN_FRONTEND=noninteractive apt-get install -y systemd systemd-sysv dbus wget curl sudo gpg"
 
   status=$?
   set -e
