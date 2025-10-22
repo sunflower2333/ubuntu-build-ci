@@ -235,7 +235,7 @@ usermod -aG sudo "${DEFAULT_USER_NAME}"
 
 # SDDM Rotate
 echo "[container] Configure display rotation for DSI-1"
-cat <<'EOR' >/usr/share/sddm/scripts/Xsetup
+cat <<'EOR' >>/usr/share/sddm/scripts/Xsetup
 xrandr --output DSI-1 --rotate right --scale 0.5x0.5
 xinput set-prop 7 "Coordinate Transformation Matrix" 0 1 0 -1 0 1 0 0 1
 EOR
@@ -292,6 +292,9 @@ cat <<'EOR' >/home/ubuntu/.local/share/kscreen/outputs/b5350822fc24a835e633b5bf9
     "vrrpolicy": 0
 }
 EOR
+# Disable X11 Plasma
+sudo mv /usr/share/xsessions/plasma.desktop /usr/share/xsessions/plasma.desktop.disabled
+
 chown -R "${DEFAULT_USER_NAME}:${DEFAULT_USER_NAME}" /home/ubuntu/.local
 chmod -R 700 /home/ubuntu/.local
 
