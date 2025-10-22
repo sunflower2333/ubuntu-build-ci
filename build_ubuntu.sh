@@ -272,7 +272,7 @@ cat <<'EOR' >/home/ubuntu/.local/share/kscreen/b5350822fc24a835e633b5bf90f2b56d
     }
 ]
 EOR
-cat <<'EOR' >/home/ubuntu/.local/kscreen/outputs/b5350822fc24a835e633b5bf90f2b56d
+cat <<'EOR' >/home/ubuntu/.local/share/kscreen/outputs/b5350822fc24a835e633b5bf90f2b56d
 {
     "id": "DSI-1",
     "metadata": {
