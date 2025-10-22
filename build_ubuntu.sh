@@ -179,12 +179,25 @@ echo "[container] Updating and installing base packages"
 apt-get update && apt-get upgrade -y
 apt-get install -y ubuntu-minimal systemd \
   dbus locales tzdata ca-certificates gnupg wget curl \
-  network-manager snap flatpak gcc python3 python3-pip \
+  network-manager flatpak gcc python3 python3-pip \
   linux-firmware zip unzip p7zip-full zstd nano vim \
-  mesa-utils vulkan-tools openssh-server \
+  mesa-utils vulkan-tools openssh-server software-properties-common \
   ${DESKTOP_ENV} sddm plasma-workspace-wayland breeze \
   sddm-theme-breeze plasma-mobile-tweaks maliit-keyboard \
-  systemsettings xinput firefox box64-generic-arm
+  systemsettings xinput box64-generic-arm
+
+echo "[container] Add Mozilla Team PPA for Firefox"
+add-apt-repository -y ppa:mozillateam/ppa
+# Configure APT to prefer Mozilla Team packages
+cat <<'MOZPREF' > /etc/apt/preferences.d/mozilla-firefox
+Package: *
+Pin: release o=LP-PPA-mozillateam
+Pin-Priority: 1001
+MOZPREF
+
+echo "[container] Install Firefox from Mozilla PPA"
+apt-get update
+apt-get install -y firefox
 
 systemctl enable sddm || true
 systemctl enable NetworkManager || true
