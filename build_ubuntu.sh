@@ -24,7 +24,7 @@ export HOSTNAME_NAME="${DISTRO}"  # desired hostname inside rootfs/container
 # Upstream assets and repos
 export KERNEL_PACKS_REPO="sunflower2333/linux"
 export FW_PACKS_REPO="sunflower2333/linux-firmware-ayaneo"
-export PROTON_URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton10-20/GE-Proton10-20.tar.zst"
+# export PROTON_URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton10-20/GE-Proton10-20.tar.zst"
 export HANGOVER_URL="https://github.com/AndreRH/hangover/releases/download/hangover-10.14/hangover_10.14_ubuntu2404_noble_arm64.tar"
 export RPCS3_URL="https://rpcs3.net/latest-linux-arm64"
 export ALSA_UCM_URL="https://github.com/sunflower2333/alsa-ucm-conf/archive/refs/heads/master.tar.gz"
@@ -114,7 +114,7 @@ configure_hostname() {
 
 pre_download_assets() {
   info "Downloading application assets into rootfs"
-  wget -q -O "${ROOTFS_DIR}/usr/local/bin/proton.tar.zst" "${PROTON_URL}" || warn "Failed to download proton"
+  # wget -q -O "${ROOTFS_DIR}/usr/local/bin/proton.tar.zst" "${PROTON_URL}" || warn "Failed to download proton"
   wget -q -O "${ROOTFS_DIR}/usr/local/bin/hangover.tar" "${HANGOVER_URL}" || warn "Failed to download hangover"
   wget -q -O "${ROOTFS_DIR}/var/opt/rpcs3-arm64.AppImage" "${RPCS3_URL}" || warn "Failed to download RPCS3"
 
@@ -166,14 +166,14 @@ export DESKTOP_ENV="kde-standard"
 export DEBIAN_FRONTEND="noninteractive"
 export TZ_REGION="Asia/Shanghai"
 
-echo "[container] Setup Box64 apt source"
-mkdir -p /usr/share/keyrings
-wget -qO- "https://pi-apps-coders.github.io/box64-debs/KEY.gpg" | gpg --dearmor -o /usr/share/keyrings/box64-archive-keyring.gpg
-# create .sources file
-echo "Types: deb
-URIs: https://Pi-Apps-Coders.github.io/box64-debs/debian
-Suites: ./
-Signed-By: /usr/share/keyrings/box64-archive-keyring.gpg" | tee /etc/apt/sources.list.d/box64.sources >/dev/null
+# echo "[container] Setup Box64 apt source"
+# mkdir -p /usr/share/keyrings
+# wget -qO- "https://pi-apps-coders.github.io/box64-debs/KEY.gpg" | gpg --dearmor -o /usr/share/keyrings/box64-archive-keyring.gpg
+# # create .sources file
+# echo "Types: deb
+# URIs: https://Pi-Apps-Coders.github.io/box64-debs/debian
+# Suites: ./
+# Signed-By: /usr/share/keyrings/box64-archive-keyring.gpg" | tee /etc/apt/sources.list.d/box64.sources >/dev/null
 
 echo "[container] Setup Firefox apt source"
 install -d -m 0755 /etc/apt/keyrings
@@ -206,12 +206,12 @@ apt-get install -y ubuntu-minimal systemd \
   mesa-utils vulkan-tools \
   ${DESKTOP_ENV} sddm plasma-workspace-wayland breeze \
   sddm-theme-breeze plasma-mobile-tweaks maliit-keyboard \
-  systemsettings xinput firefox box64-generic-arm \
+  systemsettings xinput firefox \
   firefox-l10n-zh-cn language-pack-zh-hans language-pack-kde-zh-hans
+  # box64-generic-arm 
 
 systemctl enable sddm || true
 systemctl enable NetworkManager || true
-# systemctl enable ssh || true
 
 echo "[container] Configure locale/timezone"
 locale-gen en_US.UTF-8 zh_CN.UTF-8
@@ -310,18 +310,20 @@ curl -s https://repo.waydro.id | bash || true
 apt-get update || true
 apt-get install -y waydroid || true
 
-echo "[container] Install Proton GE"
-if [[ -f /usr/local/bin/proton.tar.zst ]]; then
-  mkdir -p /usr/local/bin/proton/
-  tar -C /usr/local/bin/proton/ --zstd -xf /usr/local/bin/proton.tar.zst
-  rm -f /usr/local/bin/proton.tar.zst
-fi
+# echo "[container] Install Proton GE"
+# if [[ -f /usr/local/bin/proton.tar.zst ]]; then
+#   mkdir -p /usr/local/bin/proton/
+#   tar -C /usr/local/bin/proton/ --zstd -xf /usr/local/bin/proton.tar.zst
+#   rm -f /usr/local/bin/proton.tar.zst
+# fi
 
 echo "[container] Install Hangover"
 if [[ -f /usr/local/bin/hangover.tar ]]; then
   mkdir -p /usr/local/bin/hangover/
   tar -C /usr/local/bin/hangover/ -xf /usr/local/bin/hangover.tar
-  rm -f /usr/local/bin/hangover.tar
+  cd /usr/local/bin/hangover/
+  apt install ./hangover*.deb
+  rm -rf /usr/local/bin/hangover.tar /usr/local/bin/hangover/
 fi
 
 echo "[container] Place RPCS3 AppImage to user's desktop"
