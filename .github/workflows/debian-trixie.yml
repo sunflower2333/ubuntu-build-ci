@@ -11,6 +11,18 @@ jobs:
     permissions:
       contents: write
     timeout-minutes: 120
+    env:
+      DISTRO: noble
+      ARCH: arm64
+      MIRROR: http://ports.ubuntu.com/ubuntu-ports
+      CHUNK_SIZE: 1500m
+      HOSTNAME_NAME: noble
+      DEFAULT_USER_NAME: ubuntu
+      DEFAULT_USER_PASSWORD: passwd
+      DESKTOP_ENV: kde-standard
+      TZ_REGION: Asia/Shanghai
+      KERNEL_PACKS_REPO: sunflower2333/linux
+      FW_PACKS_REPO: sunflower2333/linux-firmware-ayaneo
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

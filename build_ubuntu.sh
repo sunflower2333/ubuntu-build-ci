@@ -11,35 +11,44 @@ set -euo pipefail
 #============================================================
 
 #-----------------------------
-# System Info (editable)
+# System Info (overridable via environment)
+# Top-level system / distro related variables can be provided by the workflow
+# or environment. Defaults below preserve previous behavior so this is
+# backwards-compatible.
 #-----------------------------
-export DISTRO="noble"
-export ARCH="arm64"
-export MIRROR="http://ports.ubuntu.com/ubuntu-ports"
-export ROOTFS_DIR="${PWD}/ubuntu-${DISTRO}-${ARCH}-rootfs"
-export SYS_OUTPUT="${PWD}/${DISTRO}-${ARCH}-rootfs.7z"
+
+# Basic distro selection
+export DISTRO="${DISTRO:-noble}"
+export ARCH="${ARCH:-arm64}"
+export MIRROR="${MIRROR:-http://ports.ubuntu.com/ubuntu-ports}"
+
+# Chunking / hostname (can be overridden by workflow)
 export CHUNK_SIZE="${CHUNK_SIZE:-1500m}"  # default 1.5GB per part; can override via env
-export HOSTNAME_NAME="${DISTRO}"  # desired hostname inside rootfs/container
+export HOSTNAME_NAME="${HOSTNAME_NAME:-${DISTRO}}"  # desired hostname inside rootfs/container
 
-# Upstream assets and repos
-export KERNEL_PACKS_REPO="sunflower2333/linux"
-export FW_PACKS_REPO="sunflower2333/linux-firmware-ayaneo"
+# Computed paths (can be overridden by env if desired)
+export ROOTFS_DIR="${ROOTFS_DIR:-${PWD}/ubuntu-${DISTRO}-${ARCH}-rootfs}"
+export SYS_OUTPUT="${SYS_OUTPUT:-${PWD}/${DISTRO}-${ARCH}-rootfs.7z}"
+
+# Upstream assets and repos (overridable)
+export KERNEL_PACKS_REPO="${KERNEL_PACKS_REPO:-sunflower2333/linux}"
+export FW_PACKS_REPO="${FW_PACKS_REPO:-sunflower2333/linux-firmware-ayaneo}"
 # export PROTON_URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton10-20/GE-Proton10-20.tar.zst"
-export HANGOVER_URL="https://github.com/AndreRH/hangover/releases/download/hangover-10.14/hangover_10.14_ubuntu2404_noble_arm64.tar"
-export RPCS3_URL="https://rpcs3.net/latest-linux-arm64"
-export ALSA_UCM_URL="https://github.com/sunflower2333/alsa-ucm-conf/archive/refs/heads/master.tar.gz"
+export HANGOVER_URL="${HANGOVER_URL:-https://github.com/AndreRH/hangover/releases/download/hangover-10.14/hangover_10.14_ubuntu2404_noble_arm64.tar}"
+export RPCS3_URL="${RPCS3_URL:-https://rpcs3.net/latest-linux-arm64}"
+export ALSA_UCM_URL="${ALSA_UCM_URL:-https://github.com/sunflower2333/alsa-ucm-conf/archive/refs/heads/master.tar.gz}"
 
-# LXC
-export LXC_NAME="ubuntufs-${DISTRO}-${ARCH}"
-export LXC_DIR="/var/lib/lxc/${LXC_NAME}"
-export LXC_CONFIG="${LXC_DIR}/config"
+# LXC names/paths (depend on DISTRO/ARCH but can be overridden)
+export LXC_NAME="${LXC_NAME:-ubuntufs-${DISTRO}-${ARCH}}"
+export LXC_DIR="${LXC_DIR:-/var/lib/lxc/${LXC_NAME}}"
+export LXC_CONFIG="${LXC_CONFIG:-${LXC_DIR}/config}"
 
-# Provisioning env inside container
-export DEFAULT_USER_NAME="ubuntu"
-export DEFAULT_USER_PASSWORD="passwd"
-export DESKTOP_ENV="kde-standard"
-export DEBIAN_FRONTEND="noninteractive"
-export TZ_REGION="Asia/Shanghai"
+# Provisioning env inside container (overridable)
+export DEFAULT_USER_NAME="${DEFAULT_USER_NAME:-ubuntu}"
+export DEFAULT_USER_PASSWORD="${DEFAULT_USER_PASSWORD:-passwd}"
+export DESKTOP_ENV="${DESKTOP_ENV:-kde-standard}"
+export DEBIAN_FRONTEND="${DEBIAN_FRONTEND:-noninteractive}"
+export TZ_REGION="${TZ_REGION:-Asia/Shanghai}"
 
 #-----------------------------
 # Helpers
@@ -322,7 +331,7 @@ if [[ -f /usr/local/bin/hangover.tar ]]; then
   mkdir -p /usr/local/bin/hangover/
   tar -C /usr/local/bin/hangover/ -xf /usr/local/bin/hangover.tar
   cd /usr/local/bin/hangover/
-  apt install ./hangover*.deb
+  apt install -y ./hangover*.deb
   rm -rf /usr/local/bin/hangover.tar /usr/local/bin/hangover/
 fi
 
