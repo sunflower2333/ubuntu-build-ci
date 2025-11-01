@@ -1,0 +1,102 @@
+name: Build ARM RootFS (Matrix)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  lxc-build:
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: write
+    timeout-minutes: 120
+    strategy:
+      matrix:
+        include:
+          - distro: noble
+            arch: arm64
+            mirror: http://ports.ubuntu.com/ubuntu-ports
+            hostname: noble
+            packages: "ubuntu-minimal systemd dbus locales tzdata ca-certificates gnupg wget curl network-manager flatpak gcc python3 python3-pip linux-firmware zip unzip p7zip-full zstd nano vim mesa-utils vulkan-tools kde-standard sddm plasma-workspace-wayland breeze sddm-theme-breeze plasma-mobile-tweaks maliit-keyboard systemsettings xinput firefox firefox-l10n-zh-cn language-pack-zh-hans language-pack-kde-zh-hans"
+          - distro: trixie
+            arch: arm64
+            mirror: http://deb.debian.org/debian
+            hostname: trixie
+            packages: "systemd dbus locales tzdata ca-certificates gnupg wget curl network-manager flatpak gcc python3 python3-pip linux-firmware zip unzip p7zip-full zstd nano vim mesa-utils vulkan-tools kde-standard sddm plasma-workspace-wayland breeze sddm-theme-breeze plasma-mobile-tweaks maliit-keyboard systemsettings xinput firefox-esr"
+    env:
+      DISTRO: ${{ matrix.distro }}
+      ARCH: ${{ matrix.arch }}
+      MIRROR: ${{ matrix.mirror }}
+      CHUNK_SIZE: 1500m
+      HOSTNAME_NAME: ${{ matrix.hostname }}
+      DEFAULT_USER_NAME: ubuntu
+      DEFAULT_USER_PASSWORD: passwd
+      DESKTOP_ENV: kde-standard
+      TZ_REGION: Asia/Shanghai
+      KERNEL_PACKS_REPO: sunflower2333/linux
+      FW_PACKS_REPO: sunflower2333/linux-firmware-ayaneo
+      CONTAINER_PACKAGES: ${{ matrix.packages }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            debootstrap lxc jq p7zip-full zstd curl wget ca-certificates \
+            tar xz-utils gnupg dnsmasq-base uidmap
+
+      - name: Run LXC build script
+        run: |
+          chmod +x build_ubuntu.sh
+          sudo ./build_ubuntu.sh
+
+      - name: Set Release Tag and Name
+        id: set_tag_name
+        run: |
+          current_time=$(date +"%y.%U.%H.%M")
+          echo "TAG_NAME=release-${{ matrix.distro }}-${current_time}" >> $GITHUB_ENV
+          echo "RELEASE_NAME=Release ${{ matrix.distro }} ${current_time}" >> $GITHUB_ENV
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          release_name: ${{ env.RELEASE_NAME }}
+          draft: false
+          prerelease: true
+
+      - name: Upload rootfs artifacts to Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPLOAD_URL: ${{ steps.create_release.outputs.upload_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          # Collect all split parts and upload using gh CLI to avoid curl OOM issues
+          parts=( *.7z.* )
+          if (( ${#parts[@]} == 0 )); then
+            echo "No 7z split parts found to upload (expected '*.7z.*')." >&2
+            ls -al
+            exit 1
+          fi
+
+          echo "Found ${#parts[@]} split 7z parts: ${parts[*]}"
+          echo "Uploading to release tag: ${TAG_NAME}"
+
+          # Ensure gh is available (GitHub runners usually have it preinstalled)
+          if ! command -v gh >/dev/null 2>&1; then
+            echo "gh CLI not found, installing..."
+            sudo apt-get update && sudo apt-get install -y gh
+          fi
+
+          gh release upload "${TAG_NAME}" "${parts[@]}" --clobber
+          echo "All 7z parts uploaded via gh CLI."

@@ -49,6 +49,7 @@ export DEFAULT_USER_PASSWORD="${DEFAULT_USER_PASSWORD:-passwd}"
 export DESKTOP_ENV="${DESKTOP_ENV:-kde-standard}"
 export DEBIAN_FRONTEND="${DEBIAN_FRONTEND:-noninteractive}"
 export TZ_REGION="${TZ_REGION:-Asia/Shanghai}"
+export CONTAINER_PACKAGES="${CONTAINER_PACKAGES:-ubuntu-minimal systemd dbus locales tzdata ca-certificates gnupg wget curl network-manager flatpak gcc python3 python3-pip linux-firmware zip unzip p7zip-full zstd nano vim mesa-utils vulkan-tools kde-standard sddm plasma-workspace-wayland breeze sddm-theme-breeze plasma-mobile-tweaks maliit-keyboard systemsettings xinput firefox firefox-l10n-zh-cn language-pack-zh-hans language-pack-kde-zh-hans}"
 
 #-----------------------------
 # Helpers
@@ -164,16 +165,17 @@ pre_download_assets() {
 
 write_provision_script() {
   info "Writing provisioning script into rootfs"
-  sudo tee "${ROOTFS_DIR}/root/provision.sh" >/dev/null <<'EOS'
+  sudo tee "${ROOTFS_DIR}/root/provision.sh" >/dev/null <<EOS
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Environment for provisioning
-export DEFAULT_USER_NAME="ubuntu"
-export DEFAULT_USER_PASSWORD="passwd"
-export DESKTOP_ENV="kde-standard"
-export DEBIAN_FRONTEND="noninteractive"
-export TZ_REGION="Asia/Shanghai"
+# Environment for provisioning (passed from host)
+export DEFAULT_USER_NAME="${DEFAULT_USER_NAME}"
+export DEFAULT_USER_PASSWORD="${DEFAULT_USER_PASSWORD}"
+export DESKTOP_ENV="${DESKTOP_ENV}"
+export DEBIAN_FRONTEND="${DEBIAN_FRONTEND}"
+export TZ_REGION="${TZ_REGION}"
+export CONTAINER_PACKAGES="${CONTAINER_PACKAGES}"
 
 # echo "[container] Setup Box64 apt source"
 # mkdir -p /usr/share/keyrings
@@ -208,15 +210,7 @@ Pin-Priority: 1000
 
 echo "[container] Updating and installing base packages"
 apt-get update && apt-get upgrade -y
-apt-get install -y ubuntu-minimal systemd \
-  dbus locales tzdata ca-certificates gnupg wget curl \
-  network-manager flatpak gcc python3 python3-pip \
-  linux-firmware zip unzip p7zip-full zstd nano vim \
-  mesa-utils vulkan-tools \
-  ${DESKTOP_ENV} sddm plasma-workspace-wayland breeze \
-  sddm-theme-breeze plasma-mobile-tweaks maliit-keyboard \
-  systemsettings xinput firefox \
-  firefox-l10n-zh-cn language-pack-zh-hans language-pack-kde-zh-hans
+apt-get install -y \${CONTAINER_PACKAGES}
   # box64-generic-arm 
 
 systemctl enable sddm || true
