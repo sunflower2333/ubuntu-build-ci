@@ -481,8 +481,13 @@ cat <<'EOR' >/tmp/grubenv
 EOR
 head -c 1024 /tmp/grubenv >/boot/grub/grubenv
 
-echo "[container] Decompress firmware files"
+echo "[container] Processing firmware files"
 find /usr/lib/firmware/ath12k/ /usr/lib/firmware/qcom/ -name "*.zst" -exec unzstd --rm {} \;
+
+if [[ -f /usr/lib/firmware/qca/hmtbtfw20.tlv ]]; then
+  # Do not load BT fw
+  rm /usr/lib/firmware/qca/hmtbtfw20.tlv
+fi
 
 echo "[container] Copy custom ucm2 conf"
 if [[ ! -d /usr/share/alsa ]]; then
