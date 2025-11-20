@@ -435,7 +435,7 @@ fi
 
 echo "[container] Install custom kernel/modules/firmware if present"
 if compgen -G "/var/opt/linux_debs/*.deb" > /dev/null; then
-  dpkg -i /var/opt/linux_debs/*.deb || apt-get -f install -y
+  dpkg -i --force-overwrite /var/opt/linux_debs/*.deb || apt-get -f install -y
   rm -rf /var/opt/linux_debs
 fi
 
@@ -507,7 +507,8 @@ echo "[container] Finished installing packages."
 
 echo "[container] Cleanup"
 apt-get clean
-rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/log/* /var/opt/* /root/.bash_history /root/provision.sh
+rm -r /var/log/* && mkdir /var/log/journal
+rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/opt/* /root/.bash_history /root/provision.sh
 EOS
 
   sudo chmod +x "${ROOTFS_DIR}/root/provision.sh"
