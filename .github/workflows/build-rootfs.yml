@@ -92,7 +92,6 @@ jobs:
               firefox-l10n-zh-cn
               language-pack-zh-hans
               language-pack-gnome-zh-hans
-              winetricks
               unrar
 
           - name: debian-13
@@ -154,7 +153,6 @@ jobs:
               xinput
               firefox-esr
               kde-config-sddm
-              winetricks
     env:
       DISTRO: ${{ matrix.distro }}
       ARCH: ${{ matrix.arch }}
