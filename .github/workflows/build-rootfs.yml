@@ -55,11 +55,11 @@ jobs:
             chunk_size: 1500m
             default_user_name: gamer
             default_user_password: passwd
-            desktop_env: kde-standard
+            desktop_env: ubuntu-desktop
             tz_region: Asia/Shanghai
             kernel_repo: sunflower2333/linux
             firmware_repo: sunflower2333/linux-firmware-ayaneo
-            hangover_url: https://github.com/AndreRH/hangover/releases/download/hangover-10.18/hangover_10.18_ubuntu2404_noble_arm64.tar
+            hangover_url: https://github.com/AndreRH/hangover/releases/download/hangover-10.14/hangover_10.14_ubuntu2404_noble_arm64.tar
             apt_sources: ""
             container_packages: |
               ubuntu-minimal
@@ -112,7 +112,7 @@ jobs:
             tz_region: Asia/Shanghai
             kernel_repo: sunflower2333/linux
             firmware_repo: sunflower2333/linux-firmware-ayaneo
-            hangover_url: https://github.com/AndreRH/hangover/releases/download/hangover-10.18/hangover_10.18_debian13_trixie_arm64.tar
+            hangover_url: https://github.com/AndreRH/hangover/releases/download/hangover-10.14/hangover_10.14_debian13_trixie_arm64.tar
             apt_sources: |
               deb http://deb.debian.org/debian trixie main contrib non-free non-free-firmware
               deb http://deb.debian.org/debian trixie-updates main contrib non-free non-free-firmware
