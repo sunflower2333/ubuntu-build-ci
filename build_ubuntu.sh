@@ -297,7 +297,16 @@ Pin-Priority: 1000
 echo "[container] Updating and installing base packages"
 apt-get update && apt-get upgrade -y
 echo "[container] Installing packages: ${CONTAINER_PACKAGES}"
-apt-get install -y ${CONTAINER_PACKAGES}
+sudo tee /etc/apt/preferences.d/no-snap-thunderbird.pref > /dev/null <<'EOF'
+Package: thunderbird
+Pin: version *
+Pin-Priority: -1
+
+Package: thunderbird-*
+Pin: version *
+Pin-Priority: -1
+EOF
+apt-get install -y ${CONTAINER_PACKAGES} 
 
 systemctl enable sddm || true
 systemctl enable NetworkManager || true
