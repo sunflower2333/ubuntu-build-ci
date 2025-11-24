@@ -258,28 +258,6 @@ TZ_REGION="${TZ_REGION:-Asia/Shanghai}"
 
 export DEFAULT_USER_NAME DEFAULT_USER_PASSWORD DESKTOP_ENV DEBIAN_FRONTEND TZ_REGION
 
-echo "[container] Install FEX"
-# RootFS not found. Do you want to try and download one?
-# > 1
-# Found exact match for distro 'XXX (SquashFS)'. Do you want to select this image?
-# > 1
-#  already exists. What do you want to do?
-# Options:
-#         0: Cancel
-#         1: Overwrite
-#         2: Validate
-# > 1
-# Do you wish to extract the squashfs file or use it as-is?
-# Options:
-#         0: Cancel
-#         1: Extract
-#         2: As-Is
-# > 2
-# Do you wish to set this RootFS as default?
-# > 1
-# XXXX.sqsh set as default RootFS
-echo -e "1\n1\n1\n2\n1" | curl --silent https://raw.githubusercontent.com/FEX-Emu/FEX/main/Scripts/InstallFEX.py | python3
-
 echo "[container] Setup Firefox apt source"
 install -d -m 0755 /etc/apt/keyrings
 curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg -o /etc/apt/keyrings/packages.mozilla.org.asc
@@ -406,6 +384,28 @@ if [[ -f /usr/local/bin/hangover.tar ]]; then
   apt install -y ./hangover*.deb
   rm -rf /usr/local/bin/hangover.tar /usr/local/bin/hangover/
 fi
+
+echo "[container] Install FEX"
+# RootFS not found. Do you want to try and download one?
+# > 1
+# Found exact match for distro 'XXX (SquashFS)'. Do you want to select this image?
+# > 1
+#  already exists. What do you want to do?
+# Options:
+#         0: Cancel
+#         1: Overwrite
+#         2: Validate
+# > 1
+# Do you wish to extract the squashfs file or use it as-is?
+# Options:
+#         0: Cancel
+#         1: Extract
+#         2: As-Is
+# > 2
+# Do you wish to set this RootFS as default?
+# > 1
+# XXXX.sqsh set as default RootFS
+echo -e "1\n1\n1\n2\n1" | curl --silent https://raw.githubusercontent.com/FEX-Emu/FEX/main/Scripts/InstallFEX.py | python3
 
 # echo "[container] Place RPCS3 AppImage to user's desktop"
 # if [[ -f /var/opt/rpcs3-arm64.AppImage ]]; then
