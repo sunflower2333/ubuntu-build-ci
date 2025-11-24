@@ -259,7 +259,26 @@ TZ_REGION="${TZ_REGION:-Asia/Shanghai}"
 export DEFAULT_USER_NAME DEFAULT_USER_PASSWORD DESKTOP_ENV DEBIAN_FRONTEND TZ_REGION
 
 echo "[container] Install FEX"
-curl --silent https://raw.githubusercontent.com/FEX-Emu/FEX/main/Scripts/InstallFEX.py | python3
+# RootFS not found. Do you want to try and download one?
+# > 1
+# Found exact match for distro 'XXX (SquashFS)'. Do you want to select this image?
+# > 1
+#  already exists. What do you want to do?
+# Options:
+#         0: Cancel
+#         1: Overwrite
+#         2: Validate
+# > 1
+# Do you wish to extract the squashfs file or use it as-is?
+# Options:
+#         0: Cancel
+#         1: Extract
+#         2: As-Is
+# > 2
+# Do you wish to set this RootFS as default?
+# > 1
+# XXXX.sqsh set as default RootFS
+echo -e "1\n1\n1\n2\n1" | curl --silent https://raw.githubusercontent.com/FEX-Emu/FEX/main/Scripts/InstallFEX.py | python3
 
 echo "[container] Setup Firefox apt source"
 install -d -m 0755 /etc/apt/keyrings
@@ -297,22 +316,7 @@ Pin-Priority: -1
 EOF
 apt-get install -y ${CONTAINER_PACKAGES} 
 
-systemctl enable sddm || true
 systemctl enable NetworkManager || true
-
-echo "[container] Configure locale/timezone"
-sed -i 's/^# *\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen || true
-sed -i 's/^# *\(zh_CN.UTF-8 UTF-8\)/\1/' /etc/locale.gen || true
-locale-gen
-update-locale LANG=zh_CN.UTF-8 LANGUAGE=zh_CN:zh LC_MESSAGES=zh_CN.UTF-8
-mkdir -p /etc/systemd/system/sddm.service.d/
-cat <<EOL >/etc/systemd/system/sddm.service.d/EnvironmentFile.conf
-[Service]
-EnvironmentFile=/etc/default/locale
-EOL
-
-ln -sf "/usr/share/zoneinfo/${TZ_REGION}" /etc/localtime || true
-dpkg-reconfigure -f noninteractive tzdata || true
 
 echo "[container] Create default user"
 if ! id -u "${DEFAULT_USER_NAME}" >/dev/null 2>&1; then
@@ -321,8 +325,33 @@ fi
 echo "${DEFAULT_USER_NAME}:${DEFAULT_USER_PASSWORD}" | chpasswd
 usermod -aG sudo "${DEFAULT_USER_NAME}"
 
+echo "[container] Configure locale/timezone"
+sed -i 's/^# *\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen || true
+sed -i 's/^# *\(zh_CN.UTF-8 UTF-8\)/\1/' /etc/locale.gen || true
+locale-gen
+update-locale LANG=zh_CN.UTF-8 LANGUAGE=zh_CN:zh LC_MESSAGES=zh_CN.UTF-8
+
+ln -sf "/usr/share/zoneinfo/${TZ_REGION}" /etc/localtime || true
+dpkg-reconfigure -f noninteractive tzdata || true
+
+echo "[container] Create placeholder english name dirs in home"
+sudo -u "${DEFAULT_USER_NAME}" bash -c '
+  cd "/home/${DEFAULT_USER_NAME}" || exit 1
+  for dir in Desktop Documents Downloads Music Pictures Public Videos; do
+    if [ ! -d "$dir" ] && [ -d "${dir^}" ]; then
+      mv "${dir^}" "$dir"
+    fi
+  done'
+
 echo "[container] Configure Desktop"
 if [ -d /usr/share/sddm/ ]; then
+  systemctl enable sddm || true
+  mkdir -p /etc/systemd/system/sddm.service.d/
+  cat <<EOL >/etc/systemd/system/sddm.service.d/EnvironmentFile.conf
+  [Service]
+  EnvironmentFile=/etc/default/locale
+  EOL
+
   # Disable X11 Plasma session if present (Debian builds may not ship the X11 entry)
   if [[ -f /usr/share/xsessions/plasma.desktop ]]; then
     sudo mv /usr/share/xsessions/plasma.desktop /usr/share/xsessions/plasma.desktop.disabled
@@ -378,13 +407,13 @@ if [[ -f /usr/local/bin/hangover.tar ]]; then
   rm -rf /usr/local/bin/hangover.tar /usr/local/bin/hangover/
 fi
 
-echo "[container] Place RPCS3 AppImage to user's desktop"
-if [[ -f /var/opt/rpcs3-arm64.AppImage ]]; then
-  chmod a+x /var/opt/rpcs3-arm64.AppImage
-  mkdir -p "/home/${DEFAULT_USER_NAME}/Desktop"
-  mv /var/opt/rpcs3-arm64.AppImage "/home/${DEFAULT_USER_NAME}/Desktop/RPCS3.AppImage"
-  chown -R "${DEFAULT_USER_NAME}:${DEFAULT_USER_NAME}" "/home/${DEFAULT_USER_NAME}/Desktop"
-fi
+# echo "[container] Place RPCS3 AppImage to user's desktop"
+# if [[ -f /var/opt/rpcs3-arm64.AppImage ]]; then
+#   chmod a+x /var/opt/rpcs3-arm64.AppImage
+#   mkdir -p "/home/${DEFAULT_USER_NAME}/Desktop"
+#   mv /var/opt/rpcs3-arm64.AppImage "/home/${DEFAULT_USER_NAME}/Desktop/RPCS3.AppImage"
+#   chown -R "${DEFAULT_USER_NAME}:${DEFAULT_USER_NAME}" "/home/${DEFAULT_USER_NAME}/Desktop"
+# fi
 
 echo "[container] Install custom kernel/modules/firmware if present"
 if compgen -G "/var/opt/linux_debs/*.deb" > /dev/null; then
