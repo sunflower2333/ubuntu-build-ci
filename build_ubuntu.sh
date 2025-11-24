@@ -263,14 +263,8 @@ TZ_REGION="${TZ_REGION:-Asia/Shanghai}"
 
 export DEFAULT_USER_NAME DEFAULT_USER_PASSWORD DESKTOP_ENV DEBIAN_FRONTEND TZ_REGION
 
-# echo "[container] Setup Box64 apt source"
-# mkdir -p /usr/share/keyrings
-# wget -qO- "https://pi-apps-coders.github.io/box64-debs/KEY.gpg" | gpg --dearmor -o /usr/share/keyrings/box64-archive-keyring.gpg
-# # create .sources file
-# echo "Types: deb
-# URIs: https://Pi-Apps-Coders.github.io/box64-debs/debian
-# Suites: ./
-# Signed-By: /usr/share/keyrings/box64-archive-keyring.gpg" | tee /etc/apt/sources.list.d/box64.sources >/dev/null
+echo "[container] Install FEX"
+curl --silent https://raw.githubusercontent.com/FEX-Emu/FEX/main/Scripts/InstallFEX.py | python3
 
 echo "[container] Setup Firefox apt source"
 install -d -m 0755 /etc/apt/keyrings
@@ -477,7 +471,7 @@ echo "[container] Finished installing packages."
 echo "[container] Cleanup"
 apt-get clean
 rm -r /var/log/* && mkdir /var/log/journal
-rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/opt/* /root/.bash_history /root/provision.sh
+rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/opt/* /root/.bash_history /root/provision.sh /etc/apt/preferences.d/no-snap-thunderbird.pref
 EOS
 
   sudo chmod +x "${ROOTFS_DIR}/root/provision.sh"
