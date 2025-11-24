@@ -332,66 +332,8 @@ fi
 echo "${DEFAULT_USER_NAME}:${DEFAULT_USER_PASSWORD}" | chpasswd
 usermod -aG sudo "${DEFAULT_USER_NAME}"
 
-echo "[container] Configure display rotation for DSI-1"
+echo "[container] Configure Desktop"
 if [ -d /usr/share/sddm/ ]; then
-  # SDDM Rotate
-  cat <<'EOR' >>/usr/share/sddm/scripts/Xsetup
-xrandr --output DSI-1 --rotate right --scale 0.5x0.5
-xinput set-prop 7 "Coordinate Transformation Matrix" 0 1 0 -1 0 1 0 0 1
-EOR
-
-  # KDE Rotate and DPI
-  echo "[container] Configure display rotation in Plasma"
-  mkdir -p /home/${DEFAULT_USER_NAME}/.local/share/kscreen/outputs/
-  # For APS2
-  cat <<'EOR' >/home/${DEFAULT_USER_NAME}/.local/share/kscreen/b5350822fc24a835e633b5bf90f2b56d
-[
-    {
-        "enabled": true,
-        "id": "DSI-1",
-        "metadata": {
-            "name": "DSI-1"
-        },
-        "mode": {
-            "refresh": 60,
-            "size": {
-                "height": 2560,
-                "width": 1440
-            }
-        },
-        "overscan": 0,
-        "pos": {
-            "x": 0,
-            "y": 0
-        },
-        "priority": 1,
-        "rgbrange": 0,
-        "rotation": 8,
-        "scale": 2,
-        "vrrpolicy": 0
-    }
-]
-EOR
-  cat <<'EOR' >/home/${DEFAULT_USER_NAME}/.local/share/kscreen/outputs/b5350822fc24a835e633b5bf90f2b56d
-{
-    "id": "DSI-1",
-    "metadata": {
-        "name": "DSI-1"
-    },
-    "mode": {
-        "refresh": 60,
-        "size": {
-            "height": 2560,
-            "width": 1440
-        }
-    },
-    "overscan": 0,
-    "rgbrange": 0,
-    "rotation": 8,
-    "scale": 2,
-    "vrrpolicy": 0
-}
-EOR
   # Disable X11 Plasma session if present (Debian builds may not ship the X11 entry)
   if [[ -f /usr/share/xsessions/plasma.desktop ]]; then
     sudo mv /usr/share/xsessions/plasma.desktop /usr/share/xsessions/plasma.desktop.disabled
@@ -399,15 +341,23 @@ EOR
     echo "[container] Plasma X11 session entry not found; nothing to disable"
   fi
 
-
   # Enable Auto Login
   if [[ ! -d /etc/sddm.conf.d ]]; then
     mkdir -p /etc/sddm.conf.d
   fi
-  cat <<EOL >/etc/sddm.conf.d/autologin.conf
+  cat <<EOL >>/etc/sddm.conf.d/autologin.conf
 [Autologin]
 User=gamer
 Session=plasma.desktop
+EOL
+fi # sdmm check
+
+# Enable autologin for gdm3 (if installed)
+if [[ -d /etc/gdm3/ ]]; then
+  cat <<EOL >>/etc/gdm3/custom.conf
+[daemon]
+AutomaticLoginEnable=True
+AutomaticLogin=${DEFAULT_USER_NAME}
 EOL
 fi
 
