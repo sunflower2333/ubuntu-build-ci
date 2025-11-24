@@ -411,8 +411,10 @@ Session=plasma.desktop
 EOL
 fi
 
-chown -R "${DEFAULT_USER_NAME}:${DEFAULT_USER_NAME}" /home/${DEFAULT_USER_NAME}/.local
-chmod -R 700 /home/${DEFAULT_USER_NAME}/.local
+if [ -d /home/${DEFAULT_USER_NAME}/.local ]; then
+  chown -R "${DEFAULT_USER_NAME}:${DEFAULT_USER_NAME}" /home/${DEFAULT_USER_NAME}/.local
+  chmod -R 700 /home/${DEFAULT_USER_NAME}/.local
+fi
 
 echo "[container] Install Waydroid"
 curl -s https://repo.waydro.id | bash || true
