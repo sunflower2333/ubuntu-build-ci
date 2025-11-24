@@ -1,0 +1,119 @@
+name: Build SD Image
+
+'on':
+  workflow_call:
+    inputs:
+      release_tag:
+        required: true
+        type: string
+      distribution_name:
+        required: true
+        type: string
+      rootfs_prefix:
+        required: true
+        type: string
+      esp_device_name:
+        required: true
+        type: string
+      chunk_size:
+        required: false
+        type: string
+        default: 1500m
+
+jobs:
+  build-sd-image:
+    name: Build SD image and upload
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full gh
+
+      - name: Compose and upload SD image
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          DISTRIBUTION_NAME: ${{ inputs.distribution_name }}
+          ROOTFS_PREFIX: ${{ inputs.rootfs_prefix }}
+          ESP_DEVICE_NAME: ${{ inputs.esp_device_name }}
+          CHUNK_SIZE: ${{ inputs.chunk_size }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          work_dir="${RUNNER_TEMP}/sd-image"
+          artifacts_dir="${work_dir}/artifacts"
+          output_dir="${work_dir}/output"
+          mkdir -p "${artifacts_dir}" "${output_dir}"
+
+          rootfs_pattern="${ROOTFS_PREFIX}-rootfs.7z.*"
+          echo "Downloading rootfs archives (${rootfs_pattern}) from release"
+          gh release download "${RELEASE_TAG}" \
+            --pattern "${rootfs_pattern}" --dir "${artifacts_dir}"
+
+          shopt -s nullglob
+          rootfs_parts=("${artifacts_dir}"/${ROOTFS_PREFIX}-rootfs.7z.*)
+          if (( ${#rootfs_parts[@]} == 0 )); then
+            echo "No rootfs archives found for pattern ${rootfs_pattern}" >&2
+            exit 1
+          fi
+
+          esp_archive="esp-${ESP_DEVICE_NAME}.img.7z"
+          echo "Downloading ESP archive ${esp_archive}"
+          gh release download "${RELEASE_TAG}" \
+            --pattern "${esp_archive}" --dir "${artifacts_dir}"
+
+          if [[ ! -f "${artifacts_dir}/${esp_archive}" ]]; then
+            echo "ESP archive ${esp_archive} not found" >&2
+            exit 1
+          fi
+
+          echo "Extracting rootfs image"
+          7z x "${artifacts_dir}/${ROOTFS_PREFIX}-rootfs.7z.001" \
+            -o"${output_dir}" >/dev/null
+          echo "Extracting ESP image"
+          7z x "${artifacts_dir}/${esp_archive}" -o"${output_dir}" >/dev/null
+
+          rm -f "${artifacts_dir}"/${ROOTFS_PREFIX}-rootfs.7z.* \
+            "${artifacts_dir}/${esp_archive}"
+
+          rootfs_img="${output_dir}/${ROOTFS_PREFIX}-rootfs.img"
+          esp_img="${output_dir}/esp-${ESP_DEVICE_NAME}.img"
+
+          if [[ ! -f "${rootfs_img}" ]]; then
+            echo "Rootfs image ${rootfs_img} missing after extraction" >&2
+            exit 1
+          fi
+          if [[ ! -f "${esp_img}" ]]; then
+            echo "ESP image ${esp_img} missing after extraction" >&2
+            exit 1
+          fi
+
+          chmod +x ./pack_sd_image.sh
+          sd_img="${output_dir}/SD-${DISTRIBUTION_NAME}-image.img"
+          echo "Composing SD image via pack_sd_image.sh"
+          ./pack_sd_image.sh "${esp_img}" "${rootfs_img}" "${sd_img}"
+
+          rm -f "${rootfs_img}" "${esp_img}"
+
+          sd_archive_base="${output_dir}/SD-${DISTRIBUTION_NAME}-image.img.7z"
+          echo "Packaging SD image into multi-volume archive ${sd_archive_base}"
+          7z a "${sd_archive_base}" "${sd_img}" -t7z -m0=lzma2 \
+            -mx=9 -mmt=on "-v${CHUNK_SIZE}" >/dev/null
+          rm -f "${sd_img}"
+
+          sd_parts=("${sd_archive_base}".*)
+          if (( ${#sd_parts[@]} == 0 )); then
+            echo "Failed to create SD archive parts" >&2
+            exit 1
+          fi
+
+          echo "Uploading SD archive parts to release ${RELEASE_TAG}"
+          gh release upload "${RELEASE_TAG}" "${sd_parts[@]}" --clobber

@@ -53,17 +53,12 @@ export DESKTOP_ENV="${DESKTOP_ENV:-kde-standard}"
 export DEBIAN_FRONTEND="${DEBIAN_FRONTEND:-noninteractive}"
 export TZ_REGION="${TZ_REGION:-Asia/Shanghai}"
 
-readonly DEFAULT_CONTAINER_PACKAGES_TEMPLATE="ubuntu-minimal systemd dbus locales tzdata ca-certificates gnupg wget curl network-manager flatpak gcc python3 python3-pip linux-firmware zip unzip p7zip-full zstd nano vim mesa-utils vulkan-tools __DESKTOP_ENV__ sddm plasma-workspace-wayland breeze sddm-theme-breeze plasma-mobile-tweaks maliit-keyboard systemsettings xinput firefox firefox-l10n-zh-cn language-pack-zh-hans language-pack-kde-zh-hans"
-_default_container_packages="${DEFAULT_CONTAINER_PACKAGES_TEMPLATE//__DESKTOP_ENV__/${DESKTOP_ENV}}"
 if [[ -n "${CONTAINER_PACKAGES:-}" ]]; then
   _packages_expanded="${CONTAINER_PACKAGES//__DESKTOP_ENV__/${DESKTOP_ENV}}"
   _packages_expanded="${_packages_expanded//\$\{DESKTOP_ENV\}/${DESKTOP_ENV}}"
   export CONTAINER_PACKAGES="${_packages_expanded}"
   unset _packages_expanded
-else
-  export CONTAINER_PACKAGES="${_default_container_packages}"
 fi
-unset _default_container_packages
 export APT_SOURCES_LIST="${APT_SOURCES_LIST:-}"
 
 ROOTFS_LOOP_DEVICE=""

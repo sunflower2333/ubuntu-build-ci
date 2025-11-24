@@ -283,6 +283,33 @@ jobs:
       root_partition_uuid: ${{ matrix.root_partition_uuid }}
       root_partition_partlabel: ${{ matrix.root_partition_partlabel }}
 
+  build-sd:
+    name: Build SD image
+    needs:
+      - prepare-release
+      - build
+      - build-esp
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distribution_name: ubuntu-24.04
+            rootfs_prefix: ubuntu-24.04-arm64
+            esp_device_name: aps-sd
+            chunk_size: 1500m
+          - distribution_name: debian-13
+            rootfs_prefix: debian-13-arm64
+            esp_device_name: dmg-sd
+            chunk_size: 1500m
+    uses: ./.github/workflows/build-sd-image.yml
+    secrets: inherit
+    with:
+      release_tag: ${{ needs.prepare-release.outputs.tag_name }}
+      distribution_name: ${{ matrix.distribution_name }}
+      rootfs_prefix: ${{ matrix.rootfs_prefix }}
+      esp_device_name: ${{ matrix.esp_device_name }}
+      chunk_size: ${{ matrix.chunk_size }}
+
   cleanup-release:
     name: Release Cleanup on Failure
     if: ${{ failure() || cancelled() }}
@@ -290,6 +317,7 @@ jobs:
       - prepare-release
       - build
       - build-esp
+      - build-sd
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: write
