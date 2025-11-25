@@ -405,7 +405,7 @@ echo "[container] Install FEX"
 # Do you wish to set this RootFS as default?
 # > 1
 # XXXX.sqsh set as default RootFS
-echo -e "1\n1\n1\n2\n1" | curl --silent https://raw.githubusercontent.com/FEX-Emu/FEX/main/Scripts/InstallFEX.py | python3 || true
+sudo -u ${DEFAULT_USER_NAME} sh -c 'echo -e "1\n1\n1\n2\n1" | curl --silent https://raw.githubusercontent.com/FEX-Emu/FEX/main/Scripts/InstallFEX.py | python3 || true'
 
 # echo "[container] Place RPCS3 AppImage to user's desktop"
 # if [[ -f /var/opt/rpcs3-arm64.AppImage ]]; then
