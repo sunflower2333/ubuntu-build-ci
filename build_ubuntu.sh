@@ -368,6 +368,28 @@ if [ -d /home/${DEFAULT_USER_NAME}/.local ]; then
   chmod -R 700 /home/${DEFAULT_USER_NAME}/.local
 fi
 
+echo "[container] Setup SD Image expand service"
+cat <<'EOL' >/etc/systemd/system/resize-rootfs.service
+[Unit]
+Description=Expand root filesystem on first boot
+DefaultDependencies=no
+After=local-fs-pre.target
+Before=local-fs.target
+
+ConditionFirstBoot=yes
+
+[Service]
+Type=oneshot
+Environment="LANG=en_US.UTF-8" "LANGUAGE=en_US:en"
+ExecStart=-/usr/bin/growpart /dev/mmcblk0 2
+ExecStart=-/sbin/resize2fs /dev/mmcblk0p2
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+systemctl enable resize-rootfs.service
+
 echo "[container] Install Waydroid"
 curl -s https://repo.waydro.id | bash || true
 apt-get update || true
@@ -499,6 +521,10 @@ flatpak install dolphin org.DolphinEmu.dolphin-emu -y || true
 echo "[container] Finished installing packages."
 
 echo "[container] Cleanup"
+# Remove systemd first boot flag
+rm -f /etc/machine-id
+touch /etc/machine-id 
+# Clean tmp files
 apt-get clean
 rm -r /var/log/* && mkdir /var/log/journal
 rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/opt/* /root/.bash_history /root/provision.sh /etc/apt/preferences.d/no-snap-thunderbird.pref
