@@ -66,6 +66,7 @@ rootfs_start_sector=$(align_up $((esp_start_sector + esp_size_sectors)) "$ALIGNM
 
 rootfs_end_sector=$((rootfs_start_sector + rootfs_size_sectors))
 total_sectors=$(align_up "$rootfs_end_sector" "$ALIGNMENT_SECTORS")
+total_sectors=$((total_sectors + 34))
 total_bytes=$((total_sectors * SECTOR_SIZE))
 
 esp_start_bytes=$((esp_start_sector * SECTOR_SIZE))
