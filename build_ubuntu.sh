@@ -35,11 +35,11 @@ export SYS_OUTPUT="${SYS_OUTPUT:-${PWD}/${OUTPUT_PREFIX}-rootfs.7z}"
 # Upstream assets and repos (overridable)
 export KERNEL_PACKS_REPO="${KERNEL_PACKS_REPO:-sunflower2333/linux}"
 export FW_PACKS_REPO="${FW_PACKS_REPO:-sunflower2333/linux-firmware-ayaneo}"
+export GRUB_REPO="${GRUB_REPO:-sunflower2333/grub2}"
 # export PROTON_URL="https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton10-20/GE-Proton10-20.tar.zst"
 export HANGOVER_URL="${HANGOVER_URL:-https://github.com/AndreRH/hangover/releases/download/hangover-10.14/hangover_10.14_ubuntu2404_noble_arm64.tar}"
 export RPCS3_URL="${RPCS3_URL:-https://rpcs3.net/latest-linux-arm64}"
 export ALSA_UCM_URL="${ALSA_UCM_URL:-https://github.com/sunflower2333/alsa-ucm-conf/archive/refs/heads/master.tar.gz}"
-export GRUB_RELEASE_URL="${GRUB_RELEASE_URL:-https://github.com/sunflower2333/grub2/releases/download/grub-2.12-patch2/grub2-esp-aarch64.tar.gz}"
 
 # LXC names/paths (depend on DISTRO/ARCH but can be overridden)
 export LXC_NAME="${LXC_NAME:-ubuntufs-${DISTRO}-${ARCH}}"
@@ -235,8 +235,14 @@ pre_download_assets() {
     rm -f firmware_deb.7z
   fi
 
-  info "Downloading GRUB EFI binary to rootfs"
-  wget -q -O "${ROOTFS_DIR}/boot/grub2-esp-aarch64.tar.gz" "${GRUB_RELEASE_URL}" || warn "Failed to download GRUB EFI binary"
+  info "Downloading GRUB EFI binary from latest release"
+  URL=$(curl -s "https://api.github.com/repos/${GRUB_REPO}/releases/latest" \
+    | jq -r '.assets[] | select(.name=="grub2-esp-aarch64.tar.gz") | .browser_download_url') || URL=""
+  if [[ -n "${URL}" && "${URL}" != "null" ]]; then
+    curl -sL --fail -o "${ROOTFS_DIR}/boot/grub2-esp-aarch64.tar.gz" "${URL}" || warn "Failed to download GRUB EFI binary"
+  else
+    warn "Asset grub2-esp-aarch64.tar.gz not found in ${GRUB_REPO}"
+  fi
 
   info "Downloading ALSA UCM2 config to rootfs"
   wget -q -O "${ROOTFS_DIR}/var/opt/alsa-ucm-conf.tar.gz" "${ALSA_UCM_URL}" || warn "Failed to download ALSA UCM2 config"

@@ -59,6 +59,7 @@ jobs:
             tz_region: Asia/Shanghai
             kernel_repo: sunflower2333/linux
             firmware_repo: sunflower2333/linux-firmware-ayaneo
+            grub_repo: sunflower2333/grub2
             hangover_url: https://github.com/AndreRH/hangover/releases/download/hangover-10.14/hangover_10.14_ubuntu2404_noble_arm64.tar
             apt_sources: ""
             container_packages: |
@@ -107,6 +108,7 @@ jobs:
             tz_region: Asia/Shanghai
             kernel_repo: sunflower2333/linux
             firmware_repo: sunflower2333/linux-firmware-ayaneo
+            grub_repo: sunflower2333/grub2
             hangover_url: https://github.com/AndreRH/hangover/releases/download/hangover-10.14/hangover_10.14_debian13_trixie_arm64.tar
             apt_sources: |
               deb http://deb.debian.org/debian trixie main contrib non-free non-free-firmware
@@ -166,6 +168,7 @@ jobs:
       TZ_REGION: ${{ matrix.tz_region }}
       KERNEL_PACKS_REPO: ${{ matrix.kernel_repo }}
       FW_PACKS_REPO: ${{ matrix.firmware_repo }}
+      GRUB_REPO: ${{ matrix.grub_repo }}
       HANGOVER_URL: ${{ matrix.hangover_url }}
       CONTAINER_PACKAGES: ${{ matrix.container_packages }}
       APT_SOURCES_LIST: ${{ matrix.apt_sources }}
@@ -185,12 +188,12 @@ jobs:
 
       - name: Run LXC build script
         env:
-          SUDO_ENV_VARS: OUTPUT_PREFIX DISTRO ARCH MIRROR CHUNK_SIZE HOSTNAME_NAME DEFAULT_USER_NAME DEFAULT_USER_PASSWORD DESKTOP_ENV TZ_REGION KERNEL_PACKS_REPO FW_PACKS_REPO HANGOVER_URL CONTAINER_PACKAGES APT_SOURCES_LIST
+          SUDO_ENV_VARS: OUTPUT_PREFIX DISTRO ARCH MIRROR CHUNK_SIZE HOSTNAME_NAME DEFAULT_USER_NAME DEFAULT_USER_PASSWORD DESKTOP_ENV TZ_REGION KERNEL_PACKS_REPO FW_PACKS_REPO GRUB_REPO HANGOVER_URL CONTAINER_PACKAGES APT_SOURCES_LIST
         run: |
           set -euo pipefail
           chmod +x build_ubuntu.sh
 
-          sudo_env_vars="${SUDO_ENV_VARS:-OUTPUT_PREFIX DISTRO ARCH MIRROR CHUNK_SIZE HOSTNAME_NAME DEFAULT_USER_NAME DEFAULT_USER_PASSWORD DESKTOP_ENV TZ_REGION KERNEL_PACKS_REPO FW_PACKS_REPO HANGOVER_URL CONTAINER_PACKAGES APT_SOURCES_LIST}"
+          sudo_env_vars="${SUDO_ENV_VARS:-OUTPUT_PREFIX DISTRO ARCH MIRROR CHUNK_SIZE HOSTNAME_NAME DEFAULT_USER_NAME DEFAULT_USER_PASSWORD DESKTOP_ENV TZ_REGION KERNEL_PACKS_REPO FW_PACKS_REPO GRUB_REPO HANGOVER_URL CONTAINER_PACKAGES APT_SOURCES_LIST}"
           preserve_list="PATH"
           for var_name in ${sudo_env_vars}; do
             preserve_list="${preserve_list},${var_name}"
@@ -237,6 +240,7 @@ jobs:
       root_partition_partlabel: rawdump
       sd_root_uuid: 49C40B22-A4DD-44FC-A00D-79DB6C6640C6
       sd_root_partlabel: rootfs
+      grub_repo: sunflower2333/grub2
 
   build-sd:
     name: Build SD image

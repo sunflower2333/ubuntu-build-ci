@@ -21,6 +21,9 @@ on:
       sd_root_partlabel:
         required: true
         type: string
+      grub_repo:
+        required: true
+        type: string
       output_suffix:
         required: false
         type: string
@@ -39,9 +42,11 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y dosfstools p7zip-full curl wget unzip
+          sudo apt-get install -y dosfstools p7zip-full curl wget unzip jq
 
       - name: Run ESP build script
+        env:
+          GRUB_REPO: ${{ inputs.grub_repo }}
         run: |
           chmod +x ./build_esp.sh
           ./build_esp.sh \

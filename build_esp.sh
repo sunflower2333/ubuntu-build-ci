@@ -6,16 +6,28 @@ ROOT_PARTITION_UUID=$2
 ROOT_PARTLABEL=$3
 SD_ROOT_UUID=$4
 SD_ROOT_PARTLABEL=$5
-GRUB_RELEASE_URL="https://github.com/sunflower2333/grub2/releases/download/grub-2.12-patch2/grub2-esp-aarch64.tar.gz"
+
+# GRUB_REPO must be provided as environment variable
+: "${GRUB_REPO:?GRUB_REPO must be provided}"
 
 # Create working directory
 mkdir -p ESP/ && cd ESP
 mkdir -p esp
 
-# Download GRUB EFI binary
+# Download GRUB EFI binary from latest release
 # Check if grub is downloaded
 if [ ! -f grub2-esp-aarch64.tar.gz ]; then
-    curl -L -o grub2-esp-aarch64.tar.gz $GRUB_RELEASE_URL
+    echo "Fetching latest GRUB release from ${GRUB_REPO}"
+    GRUB_RELEASE_URL=$(curl -s "https://api.github.com/repos/${GRUB_REPO}/releases/latest" \
+      | jq -r '.assets[] | select(.name=="grub2-esp-aarch64.tar.gz") | .browser_download_url')
+    
+    if [[ -z "${GRUB_RELEASE_URL}" || "${GRUB_RELEASE_URL}" == "null" ]]; then
+        echo "Error: grub2-esp-aarch64.tar.gz not found in latest release of ${GRUB_REPO}" >&2
+        exit 1
+    fi
+    
+    echo "Downloading from ${GRUB_RELEASE_URL}"
+    curl -L -o grub2-esp-aarch64.tar.gz "${GRUB_RELEASE_URL}"
 fi
 
 tar -xzf grub2-esp-aarch64.tar.gz -C esp
