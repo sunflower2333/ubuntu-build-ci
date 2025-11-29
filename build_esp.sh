@@ -1,17 +1,16 @@
 #!/bin/bash
+# Usage: ./build_esp.sh <esp_partition_size> <ufs_root_uuid> <ufs_root_partlabel> <sd_root_uuid> <sd_root_partlabel>
 
-# Usage: ./build_esp.sh <device_name> <device_tree_name> <esp_partition_size> <root_partition_uuid>
-
-DEVICE_NAME=$1
-DEVICE_TREE_NAME=$2
-ESP_PARTITION_SIZE=$3
-ROOT_PARTITION_UUID=$4
-ROOT_PARTLABEL=$5
+ESP_PARTITION_SIZE=$1
+ROOT_PARTITION_UUID=$2
+ROOT_PARTLABEL=$3
+SD_ROOT_UUID=$4
+SD_ROOT_PARTLABEL=$5
 GRUB_RELEASE_URL="https://github.com/sunflower2333/grub2/releases/download/grub-2.12-patch2/grub2-esp-aarch64.tar.gz"
 
 # Create working directory
 mkdir -p ESP/ && cd ESP
-mkdir -p ${DEVICE_NAME}
+mkdir -p esp
 
 # Download GRUB EFI binary
 # Check if grub is downloaded
@@ -19,18 +18,55 @@ if [ ! -f grub2-esp-aarch64.tar.gz ]; then
     curl -L -o grub2-esp-aarch64.tar.gz $GRUB_RELEASE_URL
 fi
 
-tar -xzf grub2-esp-aarch64.tar.gz -C ${DEVICE_NAME}
+tar -xzf grub2-esp-aarch64.tar.gz -C esp
 
 # remove unused grub modules exclude ext2,part_msdos and part_gpt
-find ${DEVICE_NAME}/boot/grub/arm64-efi/ -type f ! -name 'ext2.mod' ! -name 'part_msdos.mod' ! -name 'part_gpt.mod' ! -name 'grub.cfg' -delete
+find esp/boot/grub/arm64-efi/ -type f ! -name 'ext2.mod' ! -name 'part_msdos.mod' ! -name 'part_gpt.mod' ! -name 'grub.cfg' -delete
 
-cd ${DEVICE_NAME}
+cd esp
 cat << EOF > boot/grub/grub.cfg
-search.fs_uuid $ROOT_PARTITION_UUID root
-set prefix=(\$root)/boot/grub
-set device_tree=$DEVICE_TREE_NAME
+# Rootfs selection: prefer SD, fallback to UFS; else reboot
+set sd_uuid=$SD_ROOT_UUID
+set ufs_uuid=$ROOT_PARTITION_UUID
+
+if search.fs_uuid \$sd_uuid root; then
+    echo "Found SD rootfs (UUID=\$sd_uuid)"
+    set prefix=(\$root)/boot/grub
+    set partlabel=$SD_ROOT_PARTLABEL
+elif search.fs_uuid \$ufs_uuid root; then
+    echo "Found UFS rootfs (UUID=\$ufs_uuid)"
+    set prefix=(\$root)/boot/grub
+    set partlabel=$ROOT_PARTLABEL
+else
+    echo "ROOTFS DOES NOT EXIST"
+    echo "Rebooting in 5 seconds..."
+    sleep 5
+    reboot
+fi
+
+# Load thirdparty efivar driver
+insmod efivar
+
+# Save DisplayPanelConfiguration to grub environment
+efivar --set display_param "DisplayPanelConfiguration" 882F8C2B-9646-435F-8DE5-F208FF80C1BD
+save_env display_param
+
+# Switch dtb by display panel configuration
+if [ "\$display_param" = " msm_drm.dsi_display0=qcom,mdss_dsi_wt0630_60hz_video:" ]; then
+    set device_tree="sm8650-ayaneo-ps2.dtb"
+elif [ "\$display_param" = " msm_drm.dsi_display0=qcom,mdss_dsi_wt0600_60hz_video:" ]; then
+    set device_tree="sm8550-ayaneo-ps.dtb"
+elif [ "\$display_param" = " msm_drm.dsi_display0=qcom,mdss_dsi_wt0600_1080p_60hz_video:" ]; then
+    set device_tree="sm8550-ayaneo-ps.dtb"
+elif [ "\$display_param" = " msm_drm.dsi_display0=qcom,mdss_dsi_ar02_3inch_video:" ]; then
+    set device_tree="sm8550-ayaneo-dmg.dtb"
+elif [ "\$display_param" = " msm_drm.dsi_display0=qcom,mdss_dsi_ar06_4inch_video:" ]; then
+    set device_tree="sm8550-ayaneo-ace.dtb"
+else
+    set device_tree="" # Default to nothing
+fi
+
 save_env device_tree
-set partlabel=$ROOT_PARTLABEL
 save_env partlabel
 configfile \$prefix/grub2.cfg
 EOF
@@ -43,19 +79,19 @@ then
 fi
 
 # Pack into ESP image
-if [ -f esp-${DEVICE_NAME}.img ]; then
-    rm -f esp-${DEVICE_NAME}.img
+if [ -f esp.img ]; then
+    rm -f esp.img
 fi
 
-truncate -s ${ESP_PARTITION_SIZE} esp-${DEVICE_NAME}.img
-mkfs.vfat -F12 -S 4096 -n LOGFS esp-${DEVICE_NAME}.img
+truncate -s ${ESP_PARTITION_SIZE} esp.img
+mkfs.vfat -F12 -S 4096 -n LOGFS esp.img
 mkdir -p mnt
-sudo mount -o loop esp-${DEVICE_NAME}.img mnt
-sudo cp -r ${DEVICE_NAME}/* mnt/
+sudo mount -o loop esp.img mnt
+sudo cp -r esp/* mnt/
 sudo umount mnt
 
 # compress the image
-7z a -t7z -mx=9 esp-${DEVICE_NAME}.img.7z esp-${DEVICE_NAME}.img
+7z a -t7z -mx=9 esp.img.7z esp.img
 
 # Clean up
-rm -rf mnt ${DEVICE_NAME}
+rm -rf mnt esp

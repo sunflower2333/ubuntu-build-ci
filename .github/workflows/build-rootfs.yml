@@ -228,60 +228,15 @@ jobs:
 
   build-esp:
     needs: prepare-release
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - device_name: aps
-            device_tree_name: sm8550-ayaneo-ps.dtb
-            esp_partition_size: 8388608
-            root_partition_uuid: 72BC016E-4127-21F1-4961-1DD827D7D325
-            root_partition_partlabel: rawdump
-          - device_name: aps2
-            device_tree_name: sm8650-ayaneo-ps2.dtb
-            esp_partition_size: 8388608
-            root_partition_uuid: 72BC016E-4127-21F1-4961-1DD827D7D325
-            root_partition_partlabel: rawdump
-          - device_name: dmg
-            device_tree_name: sm8550-ayaneo-dmg.dtb
-            esp_partition_size: 8388608
-            root_partition_uuid: 72BC016E-4127-21F1-4961-1DD827D7D325
-            root_partition_partlabel: rawdump
-          - device_name: ace
-            device_tree_name: sm8550-ayaneo-ace.dtb
-            esp_partition_size: 8388608
-            root_partition_uuid: 72BC016E-4127-21F1-4961-1DD827D7D325
-            root_partition_partlabel: rawdump
-          # SDCARDs
-          - device_name: aps-sd
-            device_tree_name: sm8550-ayaneo-ps.dtb
-            esp_partition_size: 8388608
-            root_partition_uuid: 49C40B22-A4DD-44FC-A00D-79DB6C6640C6
-            root_partition_partlabel: linux
-          - device_name: aps2-sd
-            device_tree_name: sm8650-ayaneo-ps2.dtb
-            esp_partition_size: 8388608
-            root_partition_uuid: 49C40B22-A4DD-44FC-A00D-79DB6C6640C6
-            root_partition_partlabel: linux
-          - device_name: dmg-sd
-            device_tree_name: sm8550-ayaneo-dmg.dtb
-            esp_partition_size: 8388608
-            root_partition_uuid: 49C40B22-A4DD-44FC-A00D-79DB6C6640C6
-            root_partition_partlabel: linux
-          - device_name: ace-sd
-            device_tree_name: sm8550-ayaneo-ace.dtb
-            esp_partition_size: 8388608
-            root_partition_uuid: 49C40B22-A4DD-44FC-A00D-79DB6C6640C6
-            root_partition_partlabel: linux
     uses: ./.github/workflows/build-esp-image.yml
     secrets: inherit
     with:
       release_tag: ${{ needs.prepare-release.outputs.tag_name }}
-      device_name: ${{ matrix.device_name }}
-      device_tree_name: ${{ matrix.device_tree_name }}
-      esp_partition_size: ${{ matrix.esp_partition_size }}
-      root_partition_uuid: ${{ matrix.root_partition_uuid }}
-      root_partition_partlabel: ${{ matrix.root_partition_partlabel }}
+      esp_partition_size: 8388608
+      root_partition_uuid: 72BC016E-4127-21F1-4961-1DD827D7D325
+      root_partition_partlabel: rawdump
+      sd_root_uuid: 49C40B22-A4DD-44FC-A00D-79DB6C6640C6
+      sd_root_partlabel: rootfs
 
   build-sd:
     name: Build SD image
@@ -295,11 +250,13 @@ jobs:
         include:
           - distribution_name: ubuntu-24.04
             rootfs_prefix: ubuntu-24.04-arm64
-            esp_device_name: aps-sd
+            sd_root_uuid: 49C40B22-A4DD-44FC-A00D-79DB6C6640C6
+            sd_root_partlabel: rootfs
             chunk_size: 1500m
           - distribution_name: debian-13
             rootfs_prefix: debian-13-arm64
-            esp_device_name: dmg-sd
+            sd_root_uuid: 49C40B22-A4DD-44FC-A00D-79DB6C6640C6
+            sd_root_partlabel: rootfs
             chunk_size: 1500m
     uses: ./.github/workflows/build-sd-image.yml
     secrets: inherit
@@ -307,7 +264,8 @@ jobs:
       release_tag: ${{ needs.prepare-release.outputs.tag_name }}
       distribution_name: ${{ matrix.distribution_name }}
       rootfs_prefix: ${{ matrix.rootfs_prefix }}
-      esp_device_name: ${{ matrix.esp_device_name }}
+      sd_root_uuid: ${{ matrix.sd_root_uuid }}
+      sd_root_partlabel: ${{ matrix.sd_root_partlabel }}
       chunk_size: ${{ matrix.chunk_size }}
 
   cleanup-release:

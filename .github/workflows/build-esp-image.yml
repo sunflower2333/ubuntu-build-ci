@@ -6,21 +6,25 @@ on:
       release_tag:
         required: true
         type: string
-      device_name:
-        required: true
-        type: string
-      device_tree_name:
-        required: true
-        type: string
       esp_partition_size:
         required: true
-        type: string
+        type: number
       root_partition_uuid:
         required: true
         type: string
       root_partition_partlabel:
         required: true
         type: string
+      sd_root_uuid:
+        required: true
+        type: string
+      sd_root_partlabel:
+        required: true
+        type: string
+      output_suffix:
+        required: false
+        type: string
+        default: ""
 
 jobs:
   build-esp:
@@ -40,7 +44,12 @@ jobs:
       - name: Run ESP build script
         run: |
           chmod +x ./build_esp.sh
-          ./build_esp.sh ${{ inputs.device_name }} ${{ inputs.device_tree_name }} ${{ inputs.esp_partition_size }} ${{ inputs.root_partition_uuid }} ${{ inputs.root_partition_partlabel }}
+          ./build_esp.sh \
+            ${{ inputs.esp_partition_size }} \
+            ${{ inputs.root_partition_uuid }} \
+            ${{ inputs.root_partition_partlabel }} \
+            ${{ inputs.sd_root_uuid }} \
+            ${{ inputs.sd_root_partlabel }}
 
       - name: Upload ESP image to release
         env:
@@ -48,7 +57,8 @@ jobs:
         run: |
           set -euo pipefail
           release_tag="${{ inputs.release_tag }}"
-          img="ESP/esp-${{ inputs.device_name }}.img.7z"
+          suffix="${{ inputs.output_suffix }}"
+          img="ESP/esp.img.7z"
 
           if [[ ! -f "${img}" ]]; then
             echo "Expected image ${img} not found" >&2
@@ -58,6 +68,12 @@ jobs:
 
           if ! command -v gh >/dev/null 2>&1; then
             sudo apt-get update && sudo apt-get install -y gh
+          fi
+
+          # Rename with suffix if provided
+          if [[ -n "${suffix}" ]]; then
+            mv "${img}" "ESP/esp${suffix}.img.7z"
+            img="ESP/esp${suffix}.img.7z"
           fi
 
           echo "Uploading ${img} to release ${release_tag}"
