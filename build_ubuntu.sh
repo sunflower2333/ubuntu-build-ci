@@ -393,25 +393,25 @@ fi
 
 echo "[container] Install FEX"
 # RootFS not found. Do you want to try and download one?
-# > 1
+# > 0
 # Found exact match for distro 'XXX (SquashFS)'. Do you want to select this image?
-# > 1
+# > 0
 #  already exists. What do you want to do?
 # Options:
 #         0: Cancel
 #         1: Overwrite
 #         2: Validate
-# > 1
+# > 0
 # Do you wish to extract the squashfs file or use it as-is?
 # Options:
 #         0: Cancel
 #         1: Extract
 #         2: As-Is
-# > 2
+# > 0
 # Do you wish to set this RootFS as default?
-# > 1
+# > 0
 # XXXX.sqsh set as default RootFS
-su - ${DEFAULT_USER_NAME} -c 'echo -e "1\n1\n1\n2\n1" | curl --silent https://raw.githubusercontent.com/FEX-Emu/FEX/main/Scripts/InstallFEX.py | python3 || true'
+echo -e "0\n0\n0\n0\n0" | curl --silent https://raw.githubusercontent.com/FEX-Emu/FEX/main/Scripts/InstallFEX.py | python3 || true
 
 # echo "[container] Place RPCS3 AppImage to user's desktop"
 # if [[ -f /var/opt/rpcs3-arm64.AppImage ]]; then
