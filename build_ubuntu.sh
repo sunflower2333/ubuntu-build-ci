@@ -313,13 +313,13 @@ ln -sf "/usr/share/zoneinfo/${TZ_REGION}" /etc/localtime || true
 dpkg-reconfigure -f noninteractive tzdata || true
 
 echo "[container] Create placeholder english name dirs in home"
-sudo -u "${DEFAULT_USER_NAME}" bash -c '
-  cd "/home/${DEFAULT_USER_NAME}" || exit 1
-  for dir in Desktop Documents Downloads Music Pictures Public Videos; do
-    if [ ! -d "$dir" ] && [ -d "${dir^}" ]; then
-      mv "${dir^}" "$dir"
-    fi
-  done'
+if [ -d "/home/${DEFAULT_USER_NAME}" ]; then
+  cd "/home/${DEFAULT_USER_NAME}"
+  mkdir -p "${DEFAULT_USER_NAME}/english" || true
+  for dir in Desktop Documents Downloads Music Pictures Videos; do
+    mkdir -p "${DEFAULT_USER_NAME}/$dir" || true
+  done
+fi
 
 echo "[container] Configure Desktop"
 if [ -d /usr/share/sddm/ ]; then
@@ -405,7 +405,7 @@ echo "[container] Install FEX"
 # Do you wish to set this RootFS as default?
 # > 1
 # XXXX.sqsh set as default RootFS
-sudo -u ${DEFAULT_USER_NAME} sh -c 'echo -e "1\n1\n1\n2\n1" | curl --silent https://raw.githubusercontent.com/FEX-Emu/FEX/main/Scripts/InstallFEX.py | python3 || true'
+su ${DEFAULT_USER_NAME} -c 'echo -e "1\n1\n1\n2\n1" | curl --silent https://raw.githubusercontent.com/FEX-Emu/FEX/main/Scripts/InstallFEX.py | python3 || true'
 
 # echo "[container] Place RPCS3 AppImage to user's desktop"
 # if [[ -f /var/opt/rpcs3-arm64.AppImage ]]; then
@@ -452,7 +452,7 @@ set gfxmode=auto
 menuentry "Boot Linux" {
 	set gfxpayload=keep
 	devicetree /boot/dtb/qcom/$device_tree
-	linux	/boot/vmlinuz fbcon=rotate:1 panic=10 efi=novamap root=PARTLABEL=$partlabel rw rootwait init=/sbin/init console=ttyS0,115200 console=tty1 -- systemd.journald.forward_to_console=true systemd.log_level=debug systemd.log_target=kmsg log_buf_len=10M printk.devkmsg=on
+	linux	/boot/vmlinuz fbcon=rotate:1 panic=10 efi=novamap root=PARTLABEL=$partlabel rw rootwait init=/sbin/init console=tty1 log_buf_len=10M quiet splash
 }
 EOR
 # Create grub env file
