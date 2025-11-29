@@ -45,14 +45,17 @@ SD_ROOT_PARTLABEL="$5"
 [ -n "$SD_ROOT_UUID" ] || { echo "Error: sd_root_uuid must be provided" >&2; exit 1; }
 [ -n "$SD_ROOT_PARTLABEL" ] || { echo "Error: sd_root_partlabel must be provided" >&2; exit 1; }
 
-require_cmd sfdisk
+require_cmd sgdisk
 require_cmd stat
 require_cmd truncate
 require_cmd dd
 require_cmd tune2fs
 
 SECTOR_SIZE=512
-ALIGNMENT_BYTES=$((4 * 1024 * 1024))
+# GPT header is at sector 1, partition table starts at sector 2 (typically 33 sectors for 128 entries)
+# First usable sector is typically 34 (2048 for 1MB alignment is common practice)
+FIRST_USABLE_SECTOR=2048  # 1MB alignment, standard for modern disks
+ALIGNMENT_BYTES=$((1 * 1024 * 1024))  # 1MB alignment for subsequent partitions
 ALIGNMENT_SECTORS=$((ALIGNMENT_BYTES / SECTOR_SIZE))
 
 esp_size_bytes=$(stat -c%s "$ESP_IMAGE")
@@ -61,7 +64,7 @@ rootfs_size_bytes=$(stat -c%s "$ROOTFS_IMAGE")
 esp_size_sectors=$(ceil_div "$esp_size_bytes" "$SECTOR_SIZE")
 rootfs_size_sectors=$(ceil_div "$rootfs_size_bytes" "$SECTOR_SIZE")
 
-esp_start_sector=$ALIGNMENT_SECTORS
+esp_start_sector=$FIRST_USABLE_SECTOR
 rootfs_start_sector=$(align_up $((esp_start_sector + esp_size_sectors)) "$ALIGNMENT_SECTORS")
 
 rootfs_end_sector=$((rootfs_start_sector + rootfs_size_sectors))
@@ -79,13 +82,17 @@ trap 'rm -f "$tmp_image"' EXIT
 
 truncate -s "$total_bytes" "$tmp_image"
 
-sfdisk "$tmp_image" >/dev/null <<EOF
-label: gpt
-unit: sectors
-
-1 : start=$esp_start_sector, size=$esp_size_sectors, type=uefi, name=ESP, bootable
-2 : start=$rootfs_start_sector, size=$rootfs_size_sectors, type=linux-filesystem, name=$SD_ROOT_PARTLABEL
-EOF
+# Create GPT partition table using sgdisk
+sgdisk -o "$tmp_image" >/dev/null  # Create new GPT
+sgdisk -n "1:${esp_start_sector}:+${esp_size_sectors}" \
+       -t 1:ef00 \
+       -c 1:ESP \
+       -A 1:set:2 \
+       "$tmp_image" >/dev/null  # EFI System Partition with legacy BIOS bootable flag
+sgdisk -n "2:${rootfs_start_sector}:+${rootfs_size_sectors}" \
+       -t 2:8300 \
+       -c 2:"$SD_ROOT_PARTLABEL" \
+       "$tmp_image" >/dev/null  # Linux filesystem partition
 
 # Copy payloads directly into their partitions without mounting anything.
 if [ -t 2 ]; then
