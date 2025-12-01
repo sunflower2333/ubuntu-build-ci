@@ -387,8 +387,20 @@ ExecStart=-/sbin/resize2fs /dev/mmcblk0p2
 [Install]
 WantedBy=multi-user.target
 EOL
-
 systemctl enable resize-rootfs.service
+
+# Currently hibernation does not work
+echo "[container] Disable Hibernate"
+if [ ! -d /etc/systemd/sleep.conf.d ]; then
+  mkdir -p /etc/systemd/sleep.conf.d
+fi
+cat <<'EOL' >/etc/systemd/sleep.conf.d/disable-hibernation.conf
+[Sleep]
+#AllowSuspend=no
+AllowHibernation=no
+AllowHybridSleep=no
+AllowSuspendThenHibernate=no
+EOL
 
 echo "[container] Install Waydroid"
 curl -s https://repo.waydro.id | bash || true
