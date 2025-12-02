@@ -332,10 +332,8 @@ dpkg-reconfigure -f noninteractive tzdata || true
 
 echo "[container] Create placeholder english name dirs in home"
 if [ -d "/home/${DEFAULT_USER_NAME}" ]; then
-  cd "/home/${DEFAULT_USER_NAME}"
-  mkdir -p "${DEFAULT_USER_NAME}/english" || true
   for dir in Desktop Documents Downloads Music Pictures Videos; do
-    mkdir -p "${DEFAULT_USER_NAME}/$dir" || true
+    mkdir -p "/home/${DEFAULT_USER_NAME}/$dir" || true
   done
 fi
 
