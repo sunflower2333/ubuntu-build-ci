@@ -474,13 +474,13 @@ insmod loadenv
 load_env
 
 set default=0
-set timeout=1
+set timeout=0
 set gfxmode=auto
 
 menuentry "Boot Linux" {
 	set gfxpayload=keep
 	devicetree /boot/dtb/qcom/$device_tree
-	linux	/boot/vmlinuz fbcon=rotate:1 panic=10 efi=novamap root=PARTLABEL=$partlabel rw rootwait init=/sbin/init console=tty1 log_buf_len=10M quiet splash
+	linux	/boot/vmlinuz $extra_bootargs panic=10 efi=novamap root=PARTLABEL=$partlabel rw rootwait init=/sbin/init console=tty1 log_buf_len=10M -- quiet splash
 }
 EOR
 # Create grub env file

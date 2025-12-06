@@ -61,25 +61,33 @@ insmod efivar
 
 # Save DisplayPanelConfiguration to grub environment
 efivar --set display_param "DisplayPanelConfiguration" 882F8C2B-9646-435F-8DE5-F208FF80C1BD
-save_env display_param
 
-# Switch dtb by display panel configuration
+# Switch dtb and kernel paratmeters by display panel configuration
 if [ "\$display_param" = " msm_drm.dsi_display0=qcom,mdss_dsi_wt0630_60hz_video:" ]; then
     set device_tree="sm8650-ayaneo-ps2.dtb"
+    set extra_bootargs="fbcon=rotate:1"
 elif [ "\$display_param" = " msm_drm.dsi_display0=qcom,mdss_dsi_wt0600_60hz_video:" ]; then
     set device_tree="sm8550-ayaneo-ps.dtb"
+    set extra_bootargs="fbcon=rotate:1"
 elif [ "\$display_param" = " msm_drm.dsi_display0=qcom,mdss_dsi_wt0600_1080p_60hz_video:" ]; then
     set device_tree="sm8550-ayaneo-ps.dtb"
+    set extra_bootargs="fbcon=rotate:1"
 elif [ "\$display_param" = " msm_drm.dsi_display0=qcom,mdss_dsi_ar02_3inch_video:" ]; then
     set device_tree="sm8550-ayaneo-dmg.dtb"
+    set extra_bootargs="fbcon=rotate:3" # 270 degrees rotation for DMG's fbcon.
 elif [ "\$display_param" = " msm_drm.dsi_display0=qcom,mdss_dsi_ar06_4inch_video:" ]; then
     set device_tree="sm8550-ayaneo-ace.dtb"
+    set extra_bootargs="fbcon=rotate:1"
 else
-    set device_tree="" # Default to nothing
+    # Default to nothing
+    set device_tree=""
+    set extra_bootargs=""
 fi
 
+save_env display_param
 save_env device_tree
 save_env partlabel
+save_env extra_bootargs
 configfile \$prefix/grub2.cfg
 EOF
 cd ..
