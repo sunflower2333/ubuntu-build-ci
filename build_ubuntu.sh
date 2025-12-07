@@ -309,6 +309,18 @@ fi
 echo "${DEFAULT_USER_NAME}:${DEFAULT_USER_PASSWORD}" | chpasswd
 usermod -aG sudo "${DEFAULT_USER_NAME}"
 
+echo "[container] Configure passwordless sudo for ${DEFAULT_USER_NAME}"
+if [[ ! -d /etc/sudoers.d ]]; then
+  mkdir -p /etc/sudoers.d
+  chmod 0755 /etc/sudoers.d || true
+fi
+printf '%s\n' "${DEFAULT_USER_NAME} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/010_${DEFAULT_USER_NAME}-nopasswd"
+chmod 0440 "/etc/sudoers.d/010_${DEFAULT_USER_NAME}-nopasswd"
+if ! visudo -cf "/etc/sudoers.d/010_${DEFAULT_USER_NAME}-nopasswd" >/dev/null; then
+  echo "[container] sudoers validation failed; reverting" >&2
+  rm -f "/etc/sudoers.d/010_${DEFAULT_USER_NAME}-nopasswd"
+fi
+
 echo "[container] Configure locale/timezone"
 sed -i 's/^# *\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen || true
 sed -i 's/^# *\(zh_CN.UTF-8 UTF-8\)/\1/' /etc/locale.gen || true
@@ -320,10 +332,8 @@ dpkg-reconfigure -f noninteractive tzdata || true
 
 echo "[container] Create placeholder english name dirs in home"
 if [ -d "/home/${DEFAULT_USER_NAME}" ]; then
-  cd "/home/${DEFAULT_USER_NAME}"
-  mkdir -p "${DEFAULT_USER_NAME}/english" || true
   for dir in Desktop Documents Downloads Music Pictures Videos; do
-    mkdir -p "${DEFAULT_USER_NAME}/$dir" || true
+    mkdir -p "/home/${DEFAULT_USER_NAME}/$dir" || true
   done
 fi
 
@@ -387,8 +397,20 @@ ExecStart=-/sbin/resize2fs /dev/mmcblk0p2
 [Install]
 WantedBy=multi-user.target
 EOL
-
 systemctl enable resize-rootfs.service
+
+# Currently hibernation does not work
+echo "[container] Disable Hibernate"
+if [ ! -d /etc/systemd/sleep.conf.d ]; then
+  mkdir -p /etc/systemd/sleep.conf.d
+fi
+cat <<'EOL' >/etc/systemd/sleep.conf.d/disable-hibernation.conf
+[Sleep]
+#AllowSuspend=no
+AllowHibernation=no
+AllowHybridSleep=no
+AllowSuspendThenHibernate=no
+EOL
 
 echo "[container] Install Waydroid"
 curl -s https://repo.waydro.id | bash || true
@@ -415,25 +437,25 @@ fi
 
 echo "[container] Install FEX"
 # RootFS not found. Do you want to try and download one?
-# > 0
+# > 1
 # Found exact match for distro 'XXX (SquashFS)'. Do you want to select this image?
-# > 0
+# > 1
 #  already exists. What do you want to do?
 # Options:
 #         0: Cancel
 #         1: Overwrite
 #         2: Validate
-# > 0
+# > 1
 # Do you wish to extract the squashfs file or use it as-is?
 # Options:
 #         0: Cancel
 #         1: Extract
 #         2: As-Is
-# > 0
+# > 2
 # Do you wish to set this RootFS as default?
-# > 0
+# > 1
 # XXXX.sqsh set as default RootFS
-echo -e "0\n0\n0\n0\n0" | curl --silent https://raw.githubusercontent.com/FEX-Emu/FEX/main/Scripts/InstallFEX.py | python3 || true
+sudo -u gamer sh -c 'curl -sL --silent https://raw.githubusercontent.com/FEX-Emu/FEX/main/Scripts/InstallFEX.py -o /tmp/InstallFEX.py && printf "1\n1\n1\n2\n1\n" | python3 /tmp/InstallFEX.py || true'
 
 # echo "[container] Place RPCS3 AppImage to user's desktop"
 # if [[ -f /var/opt/rpcs3-arm64.AppImage ]]; then
@@ -527,7 +549,7 @@ touch /etc/machine-id
 # Clean tmp files
 apt-get clean
 rm -r /var/log/* && mkdir /var/log/journal
-rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/opt/* /root/.bash_history /root/provision.sh /etc/apt/preferences.d/no-snap-thunderbird.pref
+rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/opt/* /root/.bash_history /home/${DEFAULT_USER_NAME}/.bash_history /root/provision.sh /etc/apt/preferences.d/no-snap-thunderbird.pref
 EOS
 
   sudo chmod +x "${ROOTFS_DIR}/root/provision.sh"
@@ -596,7 +618,10 @@ run_provision() {
     sudo lxc-attach -n "${LXC_NAME}" -- bash -lc 'cp /etc/resolv.conf /run/systemd/resolve/resolv.conf 2>/dev/null || true'
   fi
   sudo lxc-attach -n "${LXC_NAME}" -- \
-    env \
+    env -i \
+      PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+      HOME=/root \
+      LANG=C.UTF-8 \
       DEFAULT_USER_NAME="${DEFAULT_USER_NAME}" \
       DEFAULT_USER_PASSWORD="${DEFAULT_USER_PASSWORD}" \
       DESKTOP_ENV="${DESKTOP_ENV}" \
