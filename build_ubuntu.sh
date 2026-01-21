@@ -502,7 +502,7 @@ set gfxmode=auto
 menuentry "Boot Linux" {
 	set gfxpayload=keep
 	devicetree /boot/dtb/qcom/$device_tree
-	linux	/boot/vmlinuz $extra_bootargs panic=10 efi=novamap root=PARTLABEL=$partlabel rw rootwait init=/sbin/init console=tty1 log_buf_len=10M -- quiet splash
+	linux	/boot/vmlinuz $extra_bootargs video=efifb:off panic=10 efi=novamap root=PARTLABEL=$partlabel rw rootwait init=/sbin/init console=tty1 log_buf_len=10M -- quiet splash
 }
 EOR
 # Create grub env file
