@@ -103,6 +103,9 @@ fi
 
 dd if="$ESP_IMAGE" of="$tmp_image" bs=4M conv=notrunc,fsync oflag=seek_bytes seek="$esp_start_bytes" $dd_status
 
+# Check filesystem before modifying UUID
+sudo e2fsck -f -y "$ROOTFS_IMAGE"
+
 # Rewrite filesystem UUID of the rootfs image
 sudo tune2fs -U "$SD_ROOT_UUID" "$ROOTFS_IMAGE"
 
