@@ -64,7 +64,7 @@ efivar --set display_param "DisplayPanelConfiguration" 882F8C2B-9646-435F-8DE5-F
 
 # Switch dtb and kernel paratmeters by display panel configuration
 if [ "\$display_param" = " msm_drm.dsi_display0=qcom,mdss_dsi_wt0630_60hz_video:" ]; then
-    set device_tree="sm8650-ayaneo-ps2.dtb"
+    set device_tree="sm8650-ayaneo-pocket-s2.dtb"
     set extra_bootargs="fbcon=rotate:1"
 elif [ "\$display_param" = " msm_drm.dsi_display0=qcom,mdss_dsi_wt0600_60hz_video:" ]; then
     set device_tree="sm8550-ayaneo-ps.dtb"
